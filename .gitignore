@@ -96,6 +96,8 @@ jfm-settings.xml
 # Configurações Sensíveis - NÃO COMMITAR NUNCA!
 # ============================================================================
 .env
+.env.*
+!.env.example
 .env.local
 .env.*.local
 .env.production
@@ -112,6 +114,12 @@ credentials.json
 secrets.json
 keys/
 private_keys/
+secrets/
+.secrets/
+*.pem
+*.key
+*.keystore
+passwords.*
 *.p12
 *.pkcs12
 *.jks
@@ -181,6 +189,9 @@ jacoco.exec
 *.sqlite3
 *.h2.db
 db/
+!src/main/resources/db/
+!src/main/resources/db/migration/
+!src/main/resources/db/migration/*.sql
 data/
 
 # ============================================================================
@@ -239,4 +250,7 @@ dist/
 *.pid
 *.seed
 *.pid.lock
+
+# Regras locais do agente (não versionar alterações futuras)
+agent.md
 
