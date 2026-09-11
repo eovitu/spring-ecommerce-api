@@ -27,6 +27,7 @@ services:
       - DB_USERNAME=ecommerce
       - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required}
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET is required}
       - JWT_EXPIRATION=3600000
     depends_on:
       db:

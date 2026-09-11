@@ -1,8 +1,7 @@
 package com.e.commerce.config;
 
 import com.e.commerce.service.JwtService;
-import com.e.commerce.entity.User;
-import com.e.commerce.repository.UserRepository;
+import com.e.commerce.security.AuthenticatedUser;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -57,7 +56,6 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
-    private final UserRepository userRepository;
 
     /**
      * Processa o filtro uma única vez por requisição.
@@ -76,60 +74,47 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            log.debug("Header Authorization não encontrado ou formato inválido");
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         try {
-            // Extrair token do header
-            String authHeader = request.getHeader("Authorization");
-            
-            // Se header não existe ou não começa com "Bearer ", passa para próximo filtro
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                log.debug("Header Authorization não encontrado ou formato inválido");
-                filterChain.doFilter(request, response);
-                return;
-            }
-            
-            // Extrair apenas o token (remover "Bearer " prefix)
             String token = authHeader.substring(7);
             log.debug("Token JWT recebido, validando...");
-            
-            // Extrair email (subject) do token
             String email = jwtService.extractUsername(token);
-            
-            // Se email foi extraído e SecurityContext ainda não foi setado
+
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                
-                // Buscar usuário no banco
-                User user = userRepository.findByEmail(email).orElse(null);
-                
-                // Validar: usuário existe e token é válido para este usuário
-                if (user != null && jwtService.isTokenValid(token, email)) {
+                if (jwtService.isTokenValid(token, email)) {
                     log.info("Token JWT válido para usuário: {}", email);
-                    
-                    // Criar objeto de autenticação com role do usuário
-                    var authToken = new UsernamePasswordAuthenticationToken(
-                        email,                                              // principal (email do usuário)
-                        null,                                               // credentials (null pois já foi validado)
-                        List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())) // authorities
+
+                    AuthenticatedUser user = new AuthenticatedUser(
+                            jwtService.extractUserId(token),
+                            email,
+                            jwtService.extractRole(token)
                     );
                     
-                    // Definir autenticação no contexto de segurança
+                    var authToken = new UsernamePasswordAuthenticationToken(
+                        user,
+                        null,
+                        List.of(new SimpleGrantedAuthority("ROLE_" + user.role().name()))
+                    );
+
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-                    log.debug("SecurityContext setado para usuário: {} com role: {}", email, user.getRole());
-                    
+                    log.debug("SecurityContext setado para usuário: {} com role: {}", email, user.role());
                 } else {
-                    // Token inválido, expirado ou usuário não encontrado
-                    log.warn("Token inválido ou usuário não encontrado: {}", email);
+                    log.warn("Token JWT inválido: {}", email);
                     SecurityContextHolder.clearContext();
                 }
             }
-            
-            // Passar para próximo filtro na cadeia
-            filterChain.doFilter(request, response);
-            
         } catch (Exception e) {
-            log.error("Erro ao processar JWT", e);
+            log.debug("Token JWT invalido: {}", e.getMessage());
             SecurityContextHolder.clearContext();
-            filterChain.doFilter(request, response);
         }
+
+        filterChain.doFilter(request, response);
     }
 }
 

@@ -11,4 +11,6 @@ import java.util.UUID;
 public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     List<Order> findByUserId(UUID userId);
+
+    boolean existsByIdAndUserId(UUID id, UUID userId);
 }

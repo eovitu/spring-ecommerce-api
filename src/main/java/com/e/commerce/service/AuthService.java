@@ -42,7 +42,7 @@ public class AuthService {
             throw new UnauthorizedException("Credenciais invalidas");
         }
 
-        String token = jwtService.generateToken(user.getEmail());
+        String token = jwtService.generateToken(user);
 
         LoginResponse response = new LoginResponse();
         response.setToken(token);

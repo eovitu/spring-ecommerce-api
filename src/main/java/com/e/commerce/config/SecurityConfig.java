@@ -128,6 +128,7 @@ public class SecurityConfig {
          .authorizeHttpRequests(auth -> auth
              // Endpoints públicos (autenticação não requerida)
              .requestMatchers("/auth/**").permitAll()                                    // Login e register
+             .requestMatchers(HttpMethod.POST, "/webhooks/payments").permitAll()
              .requestMatchers(HttpMethod.GET, "/api/v1/products/**").permitAll()        // GET produtos - público
              .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()      // GET categorias - público
 

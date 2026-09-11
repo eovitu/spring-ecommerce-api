@@ -60,8 +60,8 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponse create(OrderRequest request) {
-        User user = userRepository.findById(request.getUserId())
+    public OrderResponse create(OrderRequest request, UUID authenticatedUserId) {
+        User user = userRepository.findById(authenticatedUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario nao encontrado"));
 
         Order order = Order.criar(user);

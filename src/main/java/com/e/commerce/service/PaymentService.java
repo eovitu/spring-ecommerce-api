@@ -34,6 +34,14 @@ public class PaymentService {
     }
 
     @Transactional(readOnly = true)
+    public List<PaymentResponse> findByUserId(UUID userId) {
+        return paymentRepository.findByOrderUserId(userId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public PaymentResponse findById(UUID id) {
         Payment payment = paymentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Pagamento nao encontrado"));
