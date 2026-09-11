@@ -8,7 +8,6 @@ import com.e.commerce.entity.Order;
 import com.e.commerce.entity.OrderItem;
 import com.e.commerce.entity.Product;
 import com.e.commerce.entity.User;
-import com.e.commerce.enums.OrderStatus;
 import com.e.commerce.exception.ResourceNotFoundException;
 import com.e.commerce.repository.OrderRepository;
 import com.e.commerce.repository.ProductRepository;
@@ -18,11 +17,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -70,25 +64,14 @@ public class OrderService {
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario nao encontrado"));
 
-        Order order = new Order();
-        order.setMoment(LocalDateTime.now());
-        order.setStatus(OrderStatus.AGUARDANDO_PAGAMENTO);
-        order.setUser(user);
+        Order order = Order.criar(user);
 
-        List<OrderItem> items = new ArrayList<>();
         for (OrderItemRequest itemRequest : request.getItems()) {
             Product product = productRepository.findById(itemRequest.getProductId())
                     .orElseThrow(() -> new ResourceNotFoundException("Produto nao encontrado"));
-
-            OrderItem item = new OrderItem();
-            item.setOrder(order);
-            item.setProduct(product);
-            item.setQuantity(itemRequest.getQuantity());
-            item.setPrice(product.getPrice());
-            items.add(item);
+            order.adicionarItem(product, itemRequest.getQuantity());
         }
 
-        order.setOrderItems(items);
         return toResponse(orderRepository.save(order));
     }
 

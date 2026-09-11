@@ -110,9 +110,9 @@ public class User {
     /**
      * Lista de pedidos feitos pelo usuário.
      * Relacionamento um-para-muitos.
-     * Cascata para deletar pedidos se usuário for deletado.
+     * Pedidos preservam o histórico comercial e não são removidos em cascata.
      */
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     @JsonManagedReference
     @JsonIgnore
     private List<Order> orders = new ArrayList<>();

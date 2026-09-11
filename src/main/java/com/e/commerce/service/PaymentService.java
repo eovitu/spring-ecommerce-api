@@ -4,8 +4,6 @@ import com.e.commerce.dto.request.PaymentRequest;
 import com.e.commerce.dto.response.PaymentResponse;
 import com.e.commerce.entity.Order;
 import com.e.commerce.entity.Payment;
-import com.e.commerce.enums.OrderStatus;
-import com.e.commerce.exception.DatabaseException;
 import com.e.commerce.exception.ResourceNotFoundException;
 import com.e.commerce.repository.OrderRepository;
 import com.e.commerce.repository.PaymentRepository;
@@ -54,16 +52,7 @@ public class PaymentService {
         Order order = orderRepository.findById(request.getOrderId())
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido nao encontrado"));
 
-        if (paymentRepository.findByOrderId(order.getId()).isPresent()) {
-            throw new DatabaseException("Pedido ja possui pagamento registrado");
-        }
-
-        Payment payment = new Payment();
-        payment.setOrder(order);
-        payment.setMoment(LocalDate.now());
-
-        order.setPayment(payment);
-        order.setStatus(OrderStatus.PAGO);
+        Payment payment = order.criarIntencaoPagamento(LocalDate.now());
 
         return toResponse(paymentRepository.save(payment));
     }
