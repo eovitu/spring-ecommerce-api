@@ -83,6 +83,18 @@ public class ResourceExceptionHandler {
         return ResponseEntity.status(status).body(err);
     }
 
+    @ExceptionHandler(InsufficientStockException.class)
+    public ResponseEntity<StandardError> insufficientStock(
+            InsufficientStockException e,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = HttpStatus.CONFLICT;
+        StandardError err = new StandardError(
+                Instant.now(), status.value(), "Insufficient stock", e.getMessage(), request.getRequestURI()
+        );
+        return ResponseEntity.status(status).body(err);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<StandardError> unexpectedError(Exception e, HttpServletRequest request) {
         String error = "Unexpected error";

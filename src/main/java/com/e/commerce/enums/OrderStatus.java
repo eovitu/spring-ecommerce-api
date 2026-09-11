@@ -7,5 +7,6 @@ public enum OrderStatus {
     PAGO,
     ENVIADO,
     ENTREGUE,
-    CANCELADO
+    CANCELADO,
+    RECONCILIACAO_PENDENTE
 }

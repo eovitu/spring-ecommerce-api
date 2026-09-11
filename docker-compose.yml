@@ -1,6 +1,21 @@
 version: '3.8'
 
 services:
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: ecommerce-rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ecommerce
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      timeout: 10s
+      retries: 10
+
   db:
     image: postgres:16
     container_name: ecommerce-db
@@ -29,6 +44,12 @@ services:
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - WEBHOOK_SECRET=${WEBHOOK_SECRET:?WEBHOOK_SECRET is required}
       - JWT_EXPIRATION=3600000
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=ecommerce
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
     depends_on:
       db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy

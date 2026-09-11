@@ -51,6 +51,13 @@ public class Payment {
         status = PaymentStatus.CANCELADO;
     }
 
+    void sinalizarReconciliacao() {
+        if (status != PaymentStatus.PENDENTE && status != PaymentStatus.CANCELADO) {
+            throw new IllegalStateException("Pagamento no status " + status + " nao pode ser reconciliado");
+        }
+        status = PaymentStatus.RECONCILIACAO_PENDENTE;
+    }
+
     private void exigirStatus(PaymentStatus expected, String operation) {
         if (status != expected) {
             throw new IllegalStateException("Nao e possivel " + operation + " com pagamento no status " + status);

@@ -7,18 +7,28 @@ import com.e.commerce.dto.response.OrderResponse;
 import com.e.commerce.entity.Order;
 import com.e.commerce.entity.OrderItem;
 import com.e.commerce.entity.Product;
+import com.e.commerce.entity.Stock;
+import com.e.commerce.entity.StockReservation;
 import com.e.commerce.entity.User;
+import com.e.commerce.exception.InsufficientStockException;
 import com.e.commerce.exception.ResourceNotFoundException;
 import com.e.commerce.repository.OrderRepository;
-import com.e.commerce.repository.ProductRepository;
+import com.e.commerce.repository.StockRepository;
+import com.e.commerce.repository.StockReservationRepository;
 import com.e.commerce.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 
 /**
@@ -30,7 +40,9 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
-    private final ProductRepository productRepository;
+    private final StockRepository stockRepository;
+    private final StockReservationRepository stockReservationRepository;
+    private final Clock clock;
 
     @Transactional(readOnly = true)
     public List<OrderResponse> findAll() {
@@ -64,15 +76,46 @@ public class OrderService {
         User user = userRepository.findById(authenticatedUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario nao encontrado"));
 
-        Order order = Order.criar(user);
-
-        for (OrderItemRequest itemRequest : request.getItems()) {
-            Product product = productRepository.findById(itemRequest.getProductId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Produto nao encontrado"));
-            order.adicionarItem(product, itemRequest.getQuantity());
+        Map<UUID, Integer> quantitiesByProduct = new TreeMap<>();
+        for (OrderItemRequest item : request.getItems()) {
+            quantitiesByProduct.merge(item.getProductId(), item.getQuantity(), Math::addExact);
         }
 
-        return toResponse(orderRepository.save(order));
+        Map<UUID, Stock> lockedStocks = new LinkedHashMap<>();
+        for (UUID productId : quantitiesByProduct.keySet()) {
+            Stock stock = stockRepository.findByProductIdForUpdate(productId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Estoque nao encontrado para o produto " + productId
+                    ));
+            lockedStocks.put(productId, stock);
+        }
+
+        List<UUID> insufficientProducts = quantitiesByProduct.entrySet().stream()
+                .filter(entry -> lockedStocks.get(entry.getKey()).getAvailableQuantity() < entry.getValue())
+                .map(Map.Entry::getKey)
+                .toList();
+        if (!insufficientProducts.isEmpty()) {
+            throw new InsufficientStockException("Estoque insuficiente para os produtos " + insufficientProducts);
+        }
+
+        Order order = Order.criar(user);
+        for (Map.Entry<UUID, Integer> entry : quantitiesByProduct.entrySet()) {
+            Stock stock = lockedStocks.get(entry.getKey());
+            stock.reservar(entry.getValue());
+            order.adicionarItem(stock.getProduct(), entry.getValue());
+        }
+        order.criarIntencaoPagamento(LocalDate.now(clock));
+
+        Order savedOrder = orderRepository.save(order);
+        Instant now = clock.instant();
+        List<StockReservation> reservations = quantitiesByProduct.entrySet().stream()
+                .map(entry -> StockReservation.criar(
+                        lockedStocks.get(entry.getKey()), savedOrder, entry.getValue(), now
+                ))
+                .toList();
+        stockReservationRepository.saveAll(reservations);
+
+        return toResponse(savedOrder);
     }
 
     /**

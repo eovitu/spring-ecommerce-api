@@ -5,10 +5,12 @@ import com.e.commerce.dto.response.CategoryResponse;
 import com.e.commerce.dto.response.ProductResponse;
 import com.e.commerce.entity.Category;
 import com.e.commerce.entity.Product;
+import com.e.commerce.entity.Stock;
 import com.e.commerce.exception.DatabaseException;
 import com.e.commerce.exception.ResourceNotFoundException;
 import com.e.commerce.repository.CategoryRepository;
 import com.e.commerce.repository.ProductRepository;
+import com.e.commerce.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -48,6 +50,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final StockRepository stockRepository;
 
     /**
      * Lista todos os produtos com paginação.
@@ -109,6 +112,7 @@ public class ProductService {
             
             log.debug("Validações passaram, salvando produto: {}", request.getName());
             Product saved = productRepository.save(product);
+            stockRepository.save(Stock.criar(saved, 0));
             
             log.info("Produto criado com sucesso - ID: {}, Nome: {}", 
                 saved.getId(), saved.getName());

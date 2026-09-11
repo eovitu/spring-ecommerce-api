@@ -126,6 +126,18 @@ public class Order {
         status = OrderStatus.CANCELADO;
     }
 
+    public void sinalizarReconciliacaoPagamento() {
+        if (status != OrderStatus.AGUARDANDO_PAGAMENTO && status != OrderStatus.CANCELADO) {
+            throw new IllegalStateException("Pedido no status " + status + " nao pode ser reconciliado");
+        }
+        if (payment == null) {
+            throw new IllegalStateException("Pedido nao possui pagamento");
+        }
+
+        payment.sinalizarReconciliacao();
+        status = OrderStatus.RECONCILIACAO_PENDENTE;
+    }
+
     public void marcarComoEnviado() {
         exigirStatus(OrderStatus.PAGO, "enviar pedido");
         status = OrderStatus.ENVIADO;

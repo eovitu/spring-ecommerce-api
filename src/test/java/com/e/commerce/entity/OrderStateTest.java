@@ -49,6 +49,17 @@ class OrderStateTest {
     }
 
     @Test
+    void flagsLatePaymentForManualReconciliation() {
+        Order order = orderAwaitingPayment();
+        order.cancelar();
+
+        order.sinalizarReconciliacaoPagamento();
+
+        assertEquals(OrderStatus.RECONCILIACAO_PENDENTE, order.getStatus());
+        assertEquals(PaymentStatus.RECONCILIACAO_PENDENTE, order.getPayment().getStatus());
+    }
+
+    @Test
     void rejectsCancellationAfterPaymentConfirmation() {
         Order order = orderAwaitingPayment();
         order.confirmarPagamento();
