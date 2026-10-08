@@ -88,7 +88,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 if (jwtService.isTokenValid(token, email)) {
-                    log.info("Token JWT válido para usuário: {}", email);
+                    log.info("Token JWT valido");
 
                     AuthenticatedUser user = new AuthenticatedUser(
                             jwtService.extractUserId(token),
@@ -103,9 +103,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
 
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-                    log.debug("SecurityContext setado para usuário: {} com role: {}", email, user.role());
+                    log.debug("SecurityContext autenticado");
                 } else {
-                    log.warn("Token JWT inválido: {}", email);
+                    log.warn("Token JWT invalido");
                     SecurityContextHolder.clearContext();
                 }
             }

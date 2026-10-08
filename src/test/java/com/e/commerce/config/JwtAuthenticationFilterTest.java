@@ -60,6 +60,46 @@ class JwtAuthenticationFilterTest {
         }
     }
 
+    @Test
+    void validTokenDoesNotLogIdentity() throws Exception {
+        assertIdentityIsNotLogged(true);
+    }
+
+    @Test
+    void rejectedTokenDoesNotLogExtractedIdentity() throws Exception {
+        assertIdentityIsNotLogged(false);
+    }
+
+    private void assertIdentityIsNotLogged(boolean valid) throws Exception {
+        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+        var originalLevel = logger.getLevel();
+        var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(ch.qos.logback.classic.Level.DEBUG);
+        try {
+            String email = "private-customer@example.com";
+            when(request.getHeader("Authorization")).thenReturn("Bearer private-token");
+            when(jwtService.extractUsername("private-token")).thenReturn(email);
+            when(jwtService.isTokenValid("private-token", email)).thenReturn(valid);
+            if (valid) {
+                when(jwtService.extractUserId("private-token")).thenReturn(UUID.randomUUID());
+                when(jwtService.extractRole("private-token")).thenReturn(Role.USER);
+            }
+            new JwtAuthenticationFilter(jwtService).doFilterInternal(request, response, filterChain);
+            org.junit.jupiter.api.Assertions.assertFalse(appender.list.stream()
+                    .anyMatch(event -> event.getFormattedMessage().contains("private-")
+                            || event.getFormattedMessage().contains("USER")));
+            org.junit.jupiter.api.Assertions.assertEquals(valid,
+                    SecurityContextHolder.getContext().getAuthentication() != null);
+            verify(filterChain, times(1)).doFilter(request, response);
+        } finally {
+            logger.detachAppender(appender);
+            logger.setLevel(originalLevel);
+            appender.stop();
+        }
+    }
+
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
