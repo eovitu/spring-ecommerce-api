@@ -46,7 +46,15 @@
 - [ ] README factual com configuração, Windows/Linux, pagamentos simulados, CI e limitações.
 - [ ] Executar suíte/build, revisar; commits por assunto.
 
-### Task 4: Revisão e publicação
+### Task 4: Outbox sem perda por rota ausente
+**Files:** service/OutboxPublisher.java, application.properties, OutboxPublisherTest.java, novo OutboxRoutingRabbitIntegrationTest.java, README.md apenas seção outbox.
+**Interfaces:** Consome outbox existente e schema; mantém payload orderId e adiciona messageId estável para deduplicação.
+- [ ] Reproduzir com broker descartável: rota ausente devolve mensagem apesar de ACK; execução antiga marca evento publicado indevidamente. Probe real já confirmou BROKER_ACK=true RETURNED_UNROUTABLE=true em .superpowers/sdd/ecommerce-audit/outbox-route-probe.log.
+- [ ] Usar confirmação correlacionada por evento e verificar returned antes de marcar; NACK, timeout, conexão indisponível ou retorno mantêm evento pendente via rollback. ID de mensagem é UUID persistido do outbox; não mudar payload JSON.
+- [ ] Testar broker real para rota ausente, rota existente, messageId e retry; validar teste unitário de falha e rollback PostgreSQL existente.
+- [ ] Executar testes focados e suíte, revisar; commit fix(outbox).
+
+### Task 5: Revisão e publicação
 **Files:** relatório docs/audit/2026-10-08-results.md e ledger ignorado.
 - [ ] Auditar segredos atuais/histórico sem imprimir valores; consultar dependências em fonte primária/scanner.
 - [ ] Revisão independente de requisitos e código completo; corrigir achados relevantes via agente.
