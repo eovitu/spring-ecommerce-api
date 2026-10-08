@@ -57,9 +57,12 @@ public class PaymentService {
 
     @Transactional
     public PaymentResponse create(PaymentRequest request) {
-        Order order = orderRepository.findById(request.getOrderId())
+        Order order = orderRepository.findByIdForUpdate(request.getOrderId())
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido nao encontrado"));
 
+        if (order.getPayment() != null) {
+            return toResponse(order.getPayment());
+        }
         Payment payment = order.criarIntencaoPagamento(LocalDate.now());
 
         return toResponse(paymentRepository.save(payment));

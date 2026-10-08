@@ -153,6 +153,37 @@ class PaymentWebhookServiceTest {
         verify(webhookInboxRepository, never()).tryInsert(anyString(), eq(paymentId), anyString(), anyString());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = OrderStatus.class, names = {"PAGO", "ENVIADO", "ENTREGUE", "RECONCILIACAO_PENDENTE"})
+    void newEventDoesNotReprocessSettledPayment(OrderStatus expected) {
+        UUID id = UUID.randomUUID();
+        Order order = orderAwaitingPayment();
+        Stock stock = Stock.criar(order.getOrderItems().getFirst().getProduct(), 2);
+        stock.reservar(1);
+        StockReservation reservation = StockReservation.criar(stock, order, 1, NOW.minusSeconds(60));
+        if (expected == OrderStatus.RECONCILIACAO_PENDENTE) {
+            stock.liberar(1);
+            reservation.expirar(NOW.plusSeconds(901));
+            order.sinalizarReconciliacaoPagamento();
+        } else {
+            stock.confirmarBaixa(1);
+            reservation.consumir();
+            order.confirmarPagamento();
+            if (expected == OrderStatus.ENVIADO || expected == OrderStatus.ENTREGUE) order.marcarComoEnviado();
+            if (expected == OrderStatus.ENTREGUE) order.marcarComoEntregue();
+        }
+        when(paymentRepository.existsById(id)).thenReturn(true);
+        when(paymentRepository.findByIdForUpdate(id)).thenReturn(Optional.of(order.getPayment()));
+        when(webhookInboxRepository.tryInsert(anyString(), eq(id), anyString(), anyString())).thenReturn(true);
+        when(stockReservationRepository.findProductIdsByOrderId(id)).thenReturn(List.of(id));
+        when(stockRepository.findByProductIdForUpdate(id)).thenReturn(Optional.of(stock));
+        when(stockReservationRepository.findByOrderIdForUpdate(id)).thenReturn(List.of(reservation));
+        assertTrue(service().confirmPayment("new-event", id));
+        assertEquals(expected, order.getStatus());
+        assertEquals(expected == OrderStatus.RECONCILIACAO_PENDENTE ? 2 : 1, stock.getTotalQuantity());
+        assertEquals(0, stock.getReservedQuantity());
+    }
+
     private PaymentWebhookService service() {
         return new PaymentWebhookService(
                 webhookInboxRepository,

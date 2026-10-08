@@ -2,7 +2,7 @@ package com.e.commerce.service;
 
 import com.e.commerce.entity.Payment;
 import com.e.commerce.entity.StockReservation;
-import com.e.commerce.enums.OrderStatus;
+import com.e.commerce.enums.PaymentStatus;
 import com.e.commerce.enums.StockReservationStatus;
 import com.e.commerce.exception.ResourceNotFoundException;
 import com.e.commerce.repository.PaymentRepository;
@@ -65,13 +65,12 @@ public class PaymentWebhookService {
         List<StockReservation> reservations = stockReservationRepository.findByOrderIdForUpdate(orderId);
         Payment payment = paymentRepository.findByIdForUpdate(paymentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pagamento nao encontrado"));
-        if (reservations.isEmpty()) {
-            sinalizarReconciliacao(payment, eventId, "pedido sem reserva de estoque");
+        if (payment.getStatus() == PaymentStatus.CONFIRMADO
+                || payment.getStatus() == PaymentStatus.RECONCILIACAO_PENDENTE) {
             return true;
         }
-
-        if (payment.getOrder().getStatus() == OrderStatus.PAGO
-                && reservations.stream().allMatch(r -> r.getStatus() == StockReservationStatus.CONSUMIDA)) {
+        if (reservations.isEmpty()) {
+            sinalizarReconciliacao(payment, eventId, "pedido sem reserva de estoque");
             return true;
         }
 
