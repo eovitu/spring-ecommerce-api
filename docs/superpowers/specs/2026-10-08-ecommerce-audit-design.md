@@ -31,3 +31,8 @@ JWT não possui revogação imediata após alteração de senha/exclusão; login
 
 ## Validação e publicação
 Base atual: 53 testes descobertos, 48 executados, 5 ignorados; zero falhas/erros. Executar regressões unitárias, HTTP, PostgreSQL descartável, migrations completas, build e smoke OpenAPI. Revisão independente completa, CI remoto e mergeabilidade antecedem merge. Registrar status implementado/testado/publicado/merge/deploy separadamente.
+
+## Evidências adicionais e ajuste do plano
+Scan OSV de 125 dependências runtime: 22 pacotes com advisories por versão; explorabilidade depende do uso. Confirmados avisos de Spring Security 7.0.3, Framework 7.0.5, Tomcat 11.0.18 e PostgreSQL JDBC 42.7.10. Atualizar parent para patch 4.0.8, que gerencia Framework 7.0.9, Security 7.0.7, Tomcat 11.0.24 e JDBC 42.7.13; repetir scan e tratar demais dependências apenas com versão publicada e testes. Fontes: https://api.osv.dev/ ; https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-dependencies/4.0.8/spring-boot-dependencies-4.0.8.pom ; https://springdoc.org/ .
+Histórico público .env em 0c67c10f contém JWT_SECRET linha 5, DB_PASSWORD linha 11 e SPRING_DATASOURCE_PASSWORD linha 12. Valores ocultos; rotação humana necessária caso credenciais tenham sido usadas. Não houve impressão dos valores nem reescrita de histórico.
+Merge-tree detectou 29 arquivos conflitantes com origin/develop; nenhuma resolução funcional automática autorizada. Publicação do PR continua; merge/deploy dependentes ficam pendentes.

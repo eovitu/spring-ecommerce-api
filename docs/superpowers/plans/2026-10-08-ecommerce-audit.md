@@ -40,7 +40,7 @@
 **Files:** pom.xml, Dockerfile, .dockerignore, docker-compose.yml, .github/workflows/main_ecommercevitinho.yml, novo workflow ci.yml, InventoryConcurrencyPostgresTest.java, README.md.
 **Interfaces:** Consome Task 2/schema; produz suíte PostgreSQL isolada, Java 21 e OpenAPI compatível.
 - [ ] Migrar teste para Testcontainers PostgreSQL, sem URL externa/destructive reset de banco existente; adicionar provas PostgreSQL para exclusão, limites de catálogo e migrations.
-- [ ] Atualizar SpringDoc para linha 3 compatível, comprovar /v3/api-docs em app real de teste autenticado.
+- [ ] Atualizar Spring Boot para patch 4.0.8 por advisories OSV e SpringDoc para linha 3 compatível; repetir scan de dependências, comprovar /v3/api-docs em app real de teste autenticado.
 - [ ] CI em PR develop com Java 21 e Docker; deploy existente somente após validação, não ampliar alvo automaticamente.
 - [ ] Volumes nomeados, portas locais de infra, runtime não root e dockerignore.
 - [ ] README factual com configuração, Windows/Linux, pagamentos simulados, CI e limitações.
@@ -55,3 +55,4 @@
 
 ## Pendências de política
 Revogação JWT imediata, rate limit distribuído, teto de paginação e paginação de listagens gerais permanecem riscos documentados até avaliação de contrato e implantação. Não declarar proteção inexistente.
+
