@@ -11,6 +11,7 @@ import com.e.commerce.entity.Stock;
 import com.e.commerce.entity.StockReservation;
 import com.e.commerce.entity.User;
 import com.e.commerce.exception.InsufficientStockException;
+import com.e.commerce.exception.InvalidRequestException;
 import com.e.commerce.exception.ResourceNotFoundException;
 import com.e.commerce.repository.OrderRepository;
 import com.e.commerce.repository.StockRepository;
@@ -78,7 +79,14 @@ public class OrderService {
 
         Map<UUID, Integer> quantitiesByProduct = new TreeMap<>();
         for (OrderItemRequest item : request.getItems()) {
-            quantitiesByProduct.merge(item.getProductId(), item.getQuantity(), Math::addExact);
+            if (item == null || item.getProductId() == null || item.getQuantity() == null || item.getQuantity() <= 0) {
+                throw new InvalidRequestException("Item do pedido invalido");
+            }
+            try {
+                quantitiesByProduct.merge(item.getProductId(), item.getQuantity(), Math::addExact);
+            } catch (ArithmeticException e) {
+                throw new InvalidRequestException("Quantidade total do produto excede o limite permitido");
+            }
         }
 
         Map<UUID, Stock> lockedStocks = new LinkedHashMap<>();

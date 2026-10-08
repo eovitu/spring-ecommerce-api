@@ -33,6 +33,34 @@ class ProductInventoryServiceTest {
     private StockRepository stockRepository;
 
     @Test
+    void deletesStockBeforeProductAndFlushesIntegrityChecks() {
+        UUID id = UUID.randomUUID(); Product product = new Product();
+        Stock stock = Stock.criar(product, 0);
+        when(productRepository.existsById(id)).thenReturn(true);
+        when(stockRepository.findByProductIdForUpdate(id)).thenReturn(Optional.of(stock));
+        new ProductService(productRepository, categoryRepository, stockRepository).delete(id);
+        var ordered = org.mockito.Mockito.inOrder(stockRepository, productRepository);
+        ordered.verify(stockRepository).findByProductIdForUpdate(id);
+        ordered.verify(stockRepository).delete(stock);
+        ordered.verify(stockRepository).flush();
+        ordered.verify(productRepository).deleteById(id);
+        ordered.verify(productRepository).flush();
+    }
+
+    @Test
+    void historicalReservationPreventsProductDeletionAtStockFlush() {
+        UUID id = UUID.randomUUID();
+        Stock stock = Stock.criar(new Product(), 0);
+        when(productRepository.existsById(id)).thenReturn(true);
+        when(stockRepository.findByProductIdForUpdate(id)).thenReturn(Optional.of(stock));
+        org.mockito.Mockito.doThrow(new org.springframework.dao.DataIntegrityViolationException("history FK"))
+                .when(stockRepository).flush();
+        org.junit.jupiter.api.Assertions.assertThrows(com.e.commerce.exception.DatabaseException.class,
+                () -> new ProductService(productRepository, categoryRepository, stockRepository).delete(id));
+        org.mockito.Mockito.verify(productRepository, org.mockito.Mockito.never()).deleteById(id);
+    }
+
+    @Test
     void newProductStartsWithZeroStockInsteadOfMissingStockRow() {
         Category category = new Category();
         category.setName("Category");

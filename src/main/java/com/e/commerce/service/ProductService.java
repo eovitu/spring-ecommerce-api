@@ -7,6 +7,7 @@ import com.e.commerce.entity.Category;
 import com.e.commerce.entity.Product;
 import com.e.commerce.entity.Stock;
 import com.e.commerce.exception.DatabaseException;
+import com.e.commerce.exception.InvalidRequestException;
 import com.e.commerce.exception.ResourceNotFoundException;
 import com.e.commerce.repository.CategoryRepository;
 import com.e.commerce.repository.ProductRepository;
@@ -118,7 +119,7 @@ public class ProductService {
                 saved.getId(), saved.getName());
             return toResponse(saved);
             
-        } catch (Exception e) {
+        } catch (DataIntegrityViolationException e) {
             log.error("Erro ao criar produto", e);
             throw new DatabaseException("Erro ao criar produto: " + e.getMessage());
         }
@@ -179,7 +180,10 @@ public class ProductService {
         }
 
         try {
+            stockRepository.findByProductIdForUpdate(id).ifPresent(stockRepository::delete);
+            stockRepository.flush();
             productRepository.deleteById(id);
+            productRepository.flush();
             log.info("Produto deletado com sucesso - ID: {}", id);
             
         } catch (DataIntegrityViolationException e) {
@@ -211,6 +215,10 @@ public class ProductService {
         product.setPrice(request.getPrice());
         product.setImageUrl(request.getImageUrl());
 
+        if (request.getCategories() == null || request.getCategories().length == 0
+                || Arrays.stream(request.getCategories()).anyMatch(name -> name == null || name.isBlank())) {
+            throw new InvalidRequestException("Informe categorias validas e preenchidas");
+        }
         Set<Category> categories = new LinkedHashSet<>();
         Arrays.stream(request.getCategories())
                 .map(String::trim)

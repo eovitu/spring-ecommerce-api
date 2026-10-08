@@ -122,6 +122,16 @@ class OrderInventoryServiceTest {
         verify(stockReservationRepository, never()).saveAll(any());
     }
 
+    @Test
+    void overflowingSkuQuantityIsClientValidationBeforeLocks() {
+        UUID userId = UUID.randomUUID(), productId = UUID.randomUUID();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(new User()));
+        RuntimeException error = assertThrows(RuntimeException.class, () -> service().create(
+            new OrderRequest(List.of(new OrderItemRequest(productId, Integer.MAX_VALUE), new OrderItemRequest(productId, 1))), userId));
+        assertEquals("InvalidRequestException", error.getClass().getSimpleName());
+        org.mockito.Mockito.verifyNoInteractions(stockRepository, orderRepository, stockReservationRepository);
+    }
+
     private OrderService service() {
         return new OrderService(
                 orderRepository,

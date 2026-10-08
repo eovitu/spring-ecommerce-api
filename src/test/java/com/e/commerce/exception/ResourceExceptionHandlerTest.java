@@ -30,7 +30,17 @@ class ResourceExceptionHandlerTest {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.errors[0].fieldName").value("password"));
     }
+    @Test void invalidQuantityReturns422() throws Exception {
+        mvc.perform(get("/quantity"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.message").value("Quantidade total do produto excede o limite permitido"));
+    }
+    @Test void unrelatedIllegalArgumentStillReturns500() throws Exception {
+        mvc.perform(get("/argument")).andExpect(status().isInternalServerError());
+    }
     @RestController static class ProbeController {
+        @GetMapping("/quantity") void quantity() { throw new InvalidRequestException("Quantidade total do produto excede o limite permitido"); }
+        @GetMapping("/argument") void argument() { throw new IllegalArgumentException("internal"); }
         @GetMapping("/probe") String fail() { throw new IllegalStateException("database-password=private-secret"); }
         @PostMapping("/probe") void accept(@Valid @RequestBody LoginRequest request) {}
     }

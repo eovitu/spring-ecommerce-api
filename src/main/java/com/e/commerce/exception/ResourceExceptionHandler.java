@@ -105,6 +105,13 @@ public class ResourceExceptionHandler {
         return ResponseEntity.status(status).body(err);
     }
 
+    @ExceptionHandler(InvalidRequestException.class)
+    public ResponseEntity<StandardError> invalidRequest(InvalidRequestException e, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.UNPROCESSABLE_CONTENT;
+        return ResponseEntity.status(status).body(new StandardError(
+                Instant.now(), status.value(), "Validation error", e.getMessage(), request.getRequestURI()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<StandardError> unexpectedError(Exception e, HttpServletRequest request) {
         String error = "Unexpected error";

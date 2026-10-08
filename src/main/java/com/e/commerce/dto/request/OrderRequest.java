@@ -2,6 +2,7 @@ package com.e.commerce.dto.request;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -16,6 +17,6 @@ import java.util.List;
 public class OrderRequest {
 
     @NotEmpty(message = "Pedido deve conter ao menos um item")
-    private List<@Valid OrderItemRequest> items;
+    private List<@NotNull @Valid OrderItemRequest> items;
 
 }
