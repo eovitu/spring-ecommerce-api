@@ -59,8 +59,13 @@ O runtime da imagem executa como usuário `ecommerce`, sem root.
 Checkout reserva estoque por 15 minutos. `POST /payments` reutiliza a intenção existente,
 sem confirmar pagamento. O webhook simulado exige segredo externo; confirmação após expiração
 leva à reconciliação pendente. Não existe estorno automático nem integração financeira real.
-Eventos de expiração ficam persistidos em outbox. A garantia de entrega ao broker está em auditoria;
-não interprete um registro publicado como prova de processamento por consumidor externo.
+Eventos de expiração ficam persistidos em outbox. Um evento só recebe `published_at` após ACK
+correlacionado do RabbitMQ e ausência de retorno por rota inexistente. NACK, retorno, timeout,
+interrupção ou indisponibilidade mantêm o lote pendente via rollback para nova tentativa.
+A entrega é pelo menos uma vez: falhas após o envio e antes do commit podem gerar duplicatas.
+O `messageId` é o UUID persistido do evento e permanece estável nas tentativas, permitindo
+deduplicação pelo consumidor. O payload JSON com `orderId` foi preservado.
+Um registro publicado comprova aceitação em uma fila pelo broker, não processamento pelo consumidor.
 
 ## Verificação e CI
 
