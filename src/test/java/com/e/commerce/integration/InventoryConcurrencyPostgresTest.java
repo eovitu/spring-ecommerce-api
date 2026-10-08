@@ -236,7 +236,7 @@ class InventoryConcurrencyPostgresTest {
 
     private void insertStock(int totalQuantity) {
         jdbcTemplate.update(
-                "INSERT INTO stock (product_id, total_quantity, reserved_quantity, version) VALUES (?, ?, 0, 0)",
+                "INSERT INTO stock (product_id, total_quantity, reserved_quantity) VALUES (?, ?, 0)",
                 productId, totalQuantity
         );
     }

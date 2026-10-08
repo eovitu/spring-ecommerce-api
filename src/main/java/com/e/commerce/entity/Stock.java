@@ -9,7 +9,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -37,10 +36,6 @@ public class Stock {
 
     @Column(name = "reserved_quantity", nullable = false)
     private int reservedQuantity;
-
-    @Version
-    @Column(nullable = false)
-    private long version;
 
     public static Stock criar(Product product, int totalQuantity) {
         if (totalQuantity < 0) {

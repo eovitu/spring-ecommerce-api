@@ -19,3 +19,7 @@ _Evite_: Estorno automático, pagamento confirmado
 **Evento de cancelamento por expiração**:
 Registro durável de que um pedido foi cancelado porque sua reserva de estoque expirou.
 _Evite_: Notificação de cancelamento
+
+## Concorrência de estoque
+
+Toda mutação de quantidade de estoque existente — reserva no checkout, baixa após pagamento e liberação por expiração — ocorre depois de adquirir `PESSIMISTIC_WRITE` sobre os SKUs envolvidos, sempre em ordem crescente de identificador quando há mais de um produto. Essa é a única estratégia de concorrência do estoque: `Stock` não usa versão otimista porque hoje não existe outro caminho de atualização fora desse bloqueio.
