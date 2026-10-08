@@ -254,3 +254,6 @@ dist/
 # Regras locais do agente (não versionar alterações futuras)
 agent.md
 
+
+# Workspace de evidencias e scripts temporarios
+.superpowers/

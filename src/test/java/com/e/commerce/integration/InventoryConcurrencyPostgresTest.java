@@ -10,7 +10,9 @@ import com.e.commerce.service.PaymentWebhookService;
 import com.e.commerce.service.StockReservationExpirationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.springframework.amqp.AmqpException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -33,13 +35,15 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest(properties = {
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "spring.rabbitmq.dynamic=false",
         "jobs.stock-expiration.initial-delay=3600000",
         "jobs.outbox.initial-delay=3600000"
 })
-@EnabledIfEnvironmentVariable(named = "PHASE2_DB_URL", matches = ".+")
+@Testcontainers
 class InventoryConcurrencyPostgresTest {
+    @Container
+    static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:16-alpine");
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -52,14 +56,19 @@ class InventoryConcurrencyPostgresTest {
     @Autowired
     private OutboxPublisher outboxPublisher;
 
+    @org.springframework.boot.test.web.server.LocalServerPort
+    private int port;
+    @Autowired private com.e.commerce.service.JwtService jwtService;
+    @Autowired private com.e.commerce.service.ProductService productService;
+
     private UUID userId;
     private UUID productId;
 
     @DynamicPropertySource
     static void databaseProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", () -> System.getenv("PHASE2_DB_URL"));
-        registry.add("spring.datasource.username", () -> System.getenv("PHASE2_DB_USERNAME"));
-        registry.add("spring.datasource.password", () -> System.getenv("PHASE2_DB_PASSWORD"));
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("security.jwt.secret-key", () -> "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=");
         registry.add("security.webhook.secret", () -> "integration-webhook-secret");
         registry.add("spring.rabbitmq.password", () -> "integration-rabbit-password");
@@ -77,6 +86,7 @@ class InventoryConcurrencyPostgresTest {
         jdbcTemplate.execute("DELETE FROM stock");
         jdbcTemplate.execute("DELETE FROM tb_product_category");
         jdbcTemplate.execute("DELETE FROM product");
+        jdbcTemplate.execute("DELETE FROM category");
         jdbcTemplate.execute("DELETE FROM tb_user");
 
         userId = UUID.randomUUID();
@@ -223,6 +233,103 @@ class InventoryConcurrencyPostgresTest {
         assertEquals("ATIVA", text("SELECT status FROM stock_reservation WHERE order_id = ?", orderId));
         assertEquals(1, integer("SELECT reserved_quantity FROM stock WHERE product_id = ?", productId));
         assertEquals(0, integer("SELECT COUNT(*) FROM outbox_event WHERE aggregate_id = ?", orderId));
+    }
+
+    @Test
+    void authenticatedOpenApiWorksAndAnonymousDocumentationStaysProtected() throws Exception {
+        assertEquals(403, http("GET", "/v3/api-docs", null, false).statusCode());
+        var response = http("GET", "/v3/api-docs", null, true);
+        assertEquals(200, response.statusCode(), response.body());
+        assertTrue(response.body().contains("\"openapi\""));
+        assertTrue(response.body().contains("/payments"));
+    }
+
+    @Test
+    void repeatedAndConcurrentPaymentPostsKeepOnePendingPayment() throws Exception {
+        insertStock(1);
+        UUID orderId = createOrder();
+        String body = "{\"orderId\":\"" + orderId + "\"}";
+        var first = http("POST", "/payments", body, true);
+        assertEquals(201, first.statusCode(), first.body());
+        String original = first.body();
+        assertEquals(original, http("POST", "/payments", body, true).body());
+        CountDownLatch start = new CountDownLatch(1);
+        try (ExecutorService executor = Executors.newFixedThreadPool(5)) {
+            List<Future<java.net.http.HttpResponse<String>>> futures = new ArrayList<>();
+            for (int i = 0; i < 5; i++) {
+                futures.add(executor.submit(() -> { await(start); return http("POST", "/payments", body, true); }));
+            }
+            start.countDown();
+            for (var future : futures) {
+                var response = future.get(30, java.util.concurrent.TimeUnit.SECONDS);
+                assertEquals(201, response.statusCode(), response.body());
+                assertEquals(original, response.body());
+            }
+        }
+        assertEquals(1, integer("SELECT COUNT(*) FROM payment WHERE order_id = ?", orderId));
+        assertEquals("PENDENTE", text("SELECT status FROM payment WHERE order_id = ?", orderId));
+        assertEquals("AGUARDANDO_PAGAMENTO", text("SELECT status FROM tb_orders WHERE id = ?", orderId));
+    }
+
+    @Test
+    void deletingProductWithoutHistoryAlsoDeletesStock() {
+        insertStock(1);
+        productService.delete(productId);
+        assertEquals(0, integer("SELECT COUNT(*) FROM product WHERE id = ?", productId));
+        assertEquals(0, integer("SELECT COUNT(*) FROM stock WHERE product_id = ?", productId));
+    }
+
+    @Test
+    void deletingProductWithHistoryRollsBackStockRemoval() {
+        insertStock(1);
+        UUID orderId = createOrder();
+        assertThrows(com.e.commerce.exception.DatabaseException.class, () -> productService.delete(productId));
+        assertEquals(1, integer("SELECT COUNT(*) FROM product WHERE id = ?", productId));
+        assertEquals(1, integer("SELECT reserved_quantity FROM stock WHERE product_id = ?", productId));
+        assertEquals(1, integer("SELECT COUNT(*) FROM order_item WHERE order_id = ?", orderId));
+        assertEquals(1, integer("SELECT COUNT(*) FROM payment WHERE order_id = ?", orderId));
+    }
+
+    @Test
+    void catalogLimitsPersistWithoutTruncationOrRounding() {
+        jdbcTemplate.update("INSERT INTO category(id, name) VALUES (?, ?)", UUID.randomUUID(), "Test category");
+        BigDecimal maxPrice = new BigDecimal("9".repeat(36) + ".99");
+        var request = new com.e.commerce.dto.request.ProductRequest("Boundary product", "D".repeat(500),
+                maxPrice, "https://example.com/" + "i".repeat(480), new String[]{"Test category"});
+        var product = productService.create(request);
+        assertEquals(500, text("SELECT description FROM product WHERE id = ?", product.getId()).length());
+        assertEquals(500, text("SELECT image_url FROM product WHERE id = ?", product.getId()).length());
+        assertEquals(maxPrice, jdbcTemplate.queryForObject("SELECT price FROM product WHERE id = ?", BigDecimal.class, product.getId()));
+    }
+
+    @Test
+    void migrationsUpgradeFromV1ToV5AndPreserveExistingData() {
+        String schema = "upgrade_" + UUID.randomUUID().toString().replace("-", "");
+        var initial = org.flywaydb.core.Flyway.configure().dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
+                .schemas(schema).defaultSchema(schema).target("1").load();
+        initial.migrate();
+        jdbcTemplate.update("INSERT INTO " + schema + ".product(id,name,description,price,image_url) VALUES (?, ?, ?, ?, ?)",
+                UUID.randomUUID(), "Legacy", "Legacy description", BigDecimal.TEN, "legacy.png");
+        var upgraded = org.flywaydb.core.Flyway.configure().dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
+                .schemas(schema).defaultSchema(schema).load();
+        assertEquals(4, upgraded.migrate().migrationsExecuted);
+        upgraded.validate();
+        assertEquals("5", upgraded.info().current().getVersion().getVersion());
+        assertEquals(1, integer("SELECT COUNT(*) FROM " + schema + ".product"));
+        assertEquals(1, integer("SELECT COUNT(*) FROM " + schema + ".stock"));
+        assertEquals(0, integer("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = ? AND table_name = 'stock' AND column_name = 'version'", schema));
+    }
+
+    private java.net.http.HttpResponse<String> http(String method, String path, String body, boolean authenticated) throws Exception {
+        var builder = java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://localhost:" + port + path))
+                .timeout(java.time.Duration.ofSeconds(30)).header("Content-Type", "application/json");
+        if (authenticated) {
+            var user = new com.e.commerce.entity.User();
+            user.setId(userId); user.setEmail(userId + "@example.com"); user.setRole(com.e.commerce.enums.Role.USER);
+            builder.header("Authorization", "Bearer " + jwtService.generateToken(user));
+        }
+        builder.method(method, body == null ? java.net.http.HttpRequest.BodyPublishers.noBody() : java.net.http.HttpRequest.BodyPublishers.ofString(body));
+        return java.net.http.HttpClient.newHttpClient().send(builder.build(), java.net.http.HttpResponse.BodyHandlers.ofString());
     }
 
     private UUID createOrder() {

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   rabbitmq:
     image: rabbitmq:4-management
@@ -8,11 +6,13 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ecommerce
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_port_connectivity"]
       timeout: 10s
       retries: 10
 
@@ -24,8 +24,10 @@ services:
       POSTGRES_DB: ecommerce
       POSTGRES_USER: ecommerce
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ecommerce -d ecommerce"]
       timeout: 20s
@@ -53,3 +55,7 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+
+volumes:
+  postgres-data:
+  rabbitmq-data:
