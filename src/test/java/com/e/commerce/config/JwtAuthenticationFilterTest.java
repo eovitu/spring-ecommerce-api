@@ -36,6 +36,30 @@ class JwtAuthenticationFilterTest {
     @Mock
     private FilterChain filterChain;
 
+    @Test
+    void invalidTokenDetailsAreNotLogged() throws Exception {
+        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+        var originalLevel = logger.getLevel();
+        var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(ch.qos.logback.classic.Level.DEBUG);
+        try {
+            when(request.getHeader("Authorization")).thenReturn("Bearer private-token");
+            when(jwtService.extractUsername("private-token"))
+                    .thenThrow(new IllegalArgumentException("private-token private-claim"));
+            new JwtAuthenticationFilter(jwtService).doFilterInternal(request, response, filterChain);
+            org.junit.jupiter.api.Assertions.assertFalse(appender.list.stream()
+                    .anyMatch(event -> event.getFormattedMessage().contains("private-")));
+            org.junit.jupiter.api.Assertions.assertNull(SecurityContextHolder.getContext().getAuthentication());
+            verify(filterChain, times(1)).doFilter(request, response);
+        } finally {
+            logger.detachAppender(appender);
+            logger.setLevel(originalLevel);
+            appender.stop();
+        }
+    }
+
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();

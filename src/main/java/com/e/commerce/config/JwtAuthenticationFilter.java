@@ -110,7 +110,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception e) {
-            log.debug("Token JWT invalido: {}", e.getMessage());
+            log.debug("Token JWT invalido");
             SecurityContextHolder.clearContext();
         }
 

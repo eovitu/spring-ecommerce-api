@@ -1,5 +1,6 @@
 package com.e.commerce.dto.request;
 
+import com.e.commerce.validation.BCryptPasswordLength;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -66,14 +67,15 @@ public class UserRequest {
      * Requisitos:
      * <ul>
      *   <li>Mínimo 8 caracteres</li>
-     *   <li>Máximo 128 caracteres</li>
+     *   <li>Máximo 72 bytes em UTF-8</li>
      *   <li>Deve conter pelo menos 1 letra maiúscula (A-Z)</li>
      *   <li>Deve conter pelo menos 1 número (0-9)</li>
      *   <li>Deve conter pelo menos 1 caractere especial (!@#$%^&*)</li>
      * </ul>
      */
     @NotBlank(message = "Senha é obrigatória")
-    @Size(min = 8, max = 128, message = "Senha deve ter entre 8 e 128 caracteres")
+    @Size(min = 8, message = "Senha deve ter no minimo 8 caracteres")
+    @BCryptPasswordLength
     @Pattern(
         regexp = "^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*]).+$",
         message = "Senha deve conter: 1 maiúscula, 1 número e 1 caractere especial (!@#$%^&*)"
