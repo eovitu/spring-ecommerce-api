@@ -116,18 +116,20 @@ public class SecurityConfig {
     http
         // Configurar CORS usando bean do CorsConfig
         .cors(cors -> cors.configure(http))
-        
+
         // Desabilitar CSRF - API stateless usa JWT ao invés de CSRF tokens
         .csrf(csrf -> csrf.disable())
-        
+
         // Adicionar JwtAuthenticationFilter ANTES de UsernamePasswordAuthenticationFilter
         // Isto permite que JWT seja validado em cada requisição
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-        
+
          // Configurar autorização HTTP
          .authorizeHttpRequests(auth -> auth
              // Endpoints públicos (autenticação não requerida)
+             .requestMatchers(HttpMethod.POST, "/auth/logout").authenticated()
              .requestMatchers("/auth/**").permitAll()                                    // Login e register
+             .requestMatchers(HttpMethod.POST, "/webhooks/payments").permitAll()
              .requestMatchers(HttpMethod.GET, "/api/v1/products/**").permitAll()        // GET produtos - público
              .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()      // GET categorias - público
 
@@ -135,6 +137,15 @@ public class SecurityConfig {
              // @PreAuthorize nos controllers define quem pode acessar
              .anyRequest().authenticated()
          )
+
+        .exceptionHandling(errors -> errors.defaultAuthenticationEntryPointFor(
+            (request, response, exception) -> {
+                response.setStatus(401);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"message\":\"Credenciais invalidas\"}");
+            }, request -> "POST".equals(request.getMethod()) && "/auth/logout".equals(request.getServletPath()))
+            .defaultAuthenticationEntryPointFor(
+                new org.springframework.security.web.authentication.Http403ForbiddenEntryPoint(), request -> true))
 
         // Configurar gerenciamento de sessão
         .sessionManagement(session -> session

@@ -34,15 +34,16 @@ public class AuthService {
      * @return payload de autenticação com token Bearer
      * @throws UnauthorizedException quando e-mail ou senha forem inválidos
      */
+    @org.springframework.transaction.annotation.Transactional
     public LoginResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
+        User user = userRepository.findByEmailForUpdate(request.getEmail())
                 .orElseThrow(() -> new UnauthorizedException("Credenciais invalidas"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new UnauthorizedException("Credenciais invalidas");
         }
 
-        String token = jwtService.generateToken(user.getEmail());
+        String token = jwtService.generateToken(user);
 
         LoginResponse response = new LoginResponse();
         response.setToken(token);
@@ -50,6 +51,14 @@ public class AuthService {
         response.setExpiresIn(jwtService.getExpirationTime() / 1000);
 
         return response;
+    }
+
+    /** Revoga todas as sessões após adquirir o mesmo lock usado na emissão. */
+    @org.springframework.transaction.annotation.Transactional
+    public void logout(java.util.UUID userId) {
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new UnauthorizedException("Credenciais invalidas"));
+        user.revokeSessions();
     }
 
     /**

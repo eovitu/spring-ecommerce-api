@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
  *   <li>Registro de novo usuário</li>
  * </ul>
  *
- * <p>Todos os endpoints são públicos (sem autenticação requerida).
+ * <p>Login e registro são públicos. Logout requer autenticação e revoga todas as sessões.
  *
  * <p>Flow de Autenticação:
  * <ol>
@@ -43,6 +43,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @org.springframework.security.core.annotation.AuthenticationPrincipal
+            com.e.commerce.security.AuthenticatedUser user) {
+        authService.logout(user.id());
+        return ResponseEntity.noContent().build();
+    }
 
     /**
      * Realiza a autenticação com e-mail e senha.

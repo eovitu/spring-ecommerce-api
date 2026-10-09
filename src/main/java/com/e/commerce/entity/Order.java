@@ -1,125 +1,160 @@
 package com.e.commerce.entity;
 
+import com.e.commerce.enums.OrderStatus;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
-import com.e.commerce.enums.OrderStatus;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
-/**
- * Entidade que representa um pedido no sistema de e-commerce.
- *
- * <p>Um pedido contém:
- * <ul>
- *   <li>Um usuário que realizou o pedido</li>
- *   <li>Múltiplos itens do pedido (OrderItem)</li>
- *   <li>Um pagamento opcional (Payment)</li>
- *   <li>Um status que transita entre: AGUARDANDO_PAGAMENTO → PAGO → ENVIADO → ENTREGUE</li>
- * </ul>
- *
- * <p>Status do Pedido:
- * <ul>
- *   <li>AGUARDANDO_PAGAMENTO: Pedido criado, aguardando pagamento</li>
- *   <li>PAGO: Pagamento confirmado, pronto para envio</li>
- *   <li>ENVIADO: Pedido despachado para o cliente</li>
- *   <li>ENTREGUE: Pedido entregue ao cliente</li>
- * </ul>
- *
- * <p>Relacionamentos:
- * <ul>
- *   <li>Muitos-para-Um com User (cada pedido pertence a um usuário)</li>
- *   <li>Um-para-Muitos com OrderItem (cada pedido tem múltiplos itens)</li>
- *   <li>Um-para-Um com Payment (cada pedido pode ter um pagamento)</li>
- * </ul>
- *
- * @author E-Commerce Team
- * @version 1.0
- * @since 2026-04-17
- */
 @Entity
 @Table(name = "tb_orders", indexes = {
-    @Index(name = "idx_user_id", columnList = "user_id"),
-    @Index(name = "idx_status", columnList = "status"),
-    @Index(name = "idx_created_at", columnList = "created_at")
+        @Index(name = "idx_orders_user_id", columnList = "user_id"),
+        @Index(name = "idx_orders_status", columnList = "status"),
+        @Index(name = "idx_orders_created_at", columnList = "created_at")
 })
 @Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Order {
 
-    /**
-     * Identificador único do pedido (UUID).
-     */
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    /**
-     * Data e hora em que o pedido foi criado.
-     * Definida automaticamente pelo banco.
-     */
     @Column(nullable = false, updatable = false)
     @CreationTimestamp
     private LocalDateTime moment;
 
-    /**
-     * Status atual do pedido.
-     * Valores válidos: AGUARDANDO_PAGAMENTO, PAGO, ENVIADO, ENTREGUE
-     */
-    @Column(nullable = false)
+    @Column(nullable = false, length = 32)
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
 
-    /**
-     * Usuário que realizou o pedido.
-     * Relacionamento muitos-para-um.
-     */
-    @ManyToOne(fetch = FetchType.LAZY)
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     @JsonBackReference
     private User user;
 
-    /**
-     * Pagamento associado ao pedido (opcional).
-     * Pode ser nulo enquanto pedido está em AGUARDANDO_PAGAMENTO.
-     */
-    @OneToOne(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToOne(mappedBy = "order", cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.LAZY)
     @JsonManagedReference
     private Payment payment;
 
-    /**
-     * Itens inclusos no pedido.
-     * Cada item contém produto, quantidade e preço no momento do pedido.
-     */
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "order", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JsonManagedReference
     private List<OrderItem> orderItems = new ArrayList<>();
 
-    /**
-     * Timestamp de quando o pedido foi criado.
-     * Definido automaticamente pelo banco.
-     */
     @Column(nullable = false, updatable = false)
     @CreationTimestamp
     private LocalDateTime createdAt;
 
-    /**
-     * Timestamp de última atualização.
-     * Atualizado automaticamente a cada modificação.
-     */
     @Column(nullable = false)
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    public static Order criar(User user) {
+        Order order = new Order();
+        order.user = Objects.requireNonNull(user, "Usuario e obrigatorio");
+        order.status = OrderStatus.CRIADO;
+        return order;
+    }
+
+    public void adicionarItem(Product product, int quantity) {
+        Objects.requireNonNull(product, "Produto e obrigatorio");
+        if (quantity <= 0) {
+            throw new IllegalArgumentException("Quantidade deve ser maior que zero");
+        }
+
+        BigDecimal currentPrice = Objects.requireNonNull(product.getPrice(), "Preco do produto e obrigatorio");
+        if (currentPrice.signum() < 0) {
+            throw new IllegalArgumentException("Preco do produto nao pode ser negativo");
+        }
+
+        OrderItem item = new OrderItem();
+        item.setOrder(this);
+        item.setProduct(product);
+        item.setQuantity(quantity);
+        item.setPrice(currentPrice);
+        orderItems.add(item);
+    }
+
+    public Payment criarIntencaoPagamento(LocalDate paymentDate) {
+        exigirStatus(OrderStatus.CRIADO, "criar intencao de pagamento");
+        if (orderItems.isEmpty()) {
+            throw new IllegalStateException("Pedido deve possuir ao menos um item");
+        }
+        if (payment != null) {
+            throw new IllegalStateException("Pedido ja possui uma intencao de pagamento");
+        }
+
+        payment = Payment.criarPendente(this, paymentDate);
+        status = OrderStatus.AGUARDANDO_PAGAMENTO;
+        return payment;
+    }
+
+    public void confirmarPagamento() {
+        exigirStatus(OrderStatus.AGUARDANDO_PAGAMENTO, "confirmar pagamento");
+        if (payment == null) {
+            throw new IllegalStateException("Pedido nao possui pagamento");
+        }
+
+        payment.confirmar();
+        status = OrderStatus.PAGO;
+    }
+
+    public void cancelar() {
+        if (status != OrderStatus.CRIADO && status != OrderStatus.AGUARDANDO_PAGAMENTO) {
+            throw new IllegalStateException("Pedido no status " + status + " nao pode ser cancelado");
+        }
+        if (payment != null) {
+            payment.cancelar();
+        }
+        status = OrderStatus.CANCELADO;
+    }
+
+    public void sinalizarReconciliacaoPagamento() {
+        if (status != OrderStatus.AGUARDANDO_PAGAMENTO && status != OrderStatus.CANCELADO) {
+            throw new IllegalStateException("Pedido no status " + status + " nao pode ser reconciliado");
+        }
+        if (payment == null) {
+            throw new IllegalStateException("Pedido nao possui pagamento");
+        }
+
+        payment.sinalizarReconciliacao();
+        status = OrderStatus.RECONCILIACAO_PENDENTE;
+    }
+
+    public void marcarComoEnviado() {
+        exigirStatus(OrderStatus.PAGO, "enviar pedido");
+        status = OrderStatus.ENVIADO;
+    }
+
+    public void marcarComoEntregue() {
+        exigirStatus(OrderStatus.ENVIADO, "entregar pedido");
+        status = OrderStatus.ENTREGUE;
+    }
+
+    public List<OrderItem> getOrderItems() {
+        return Collections.unmodifiableList(orderItems);
+    }
+
+    private void exigirStatus(OrderStatus expected, String operation) {
+        if (status != expected) {
+            throw new IllegalStateException("Nao e possivel " + operation + " com pedido no status " + status);
+        }
+    }
 }

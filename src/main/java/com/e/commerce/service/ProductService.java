@@ -5,10 +5,13 @@ import com.e.commerce.dto.response.CategoryResponse;
 import com.e.commerce.dto.response.ProductResponse;
 import com.e.commerce.entity.Category;
 import com.e.commerce.entity.Product;
+import com.e.commerce.entity.Stock;
 import com.e.commerce.exception.DatabaseException;
+import com.e.commerce.exception.InvalidRequestException;
 import com.e.commerce.exception.ResourceNotFoundException;
 import com.e.commerce.repository.CategoryRepository;
 import com.e.commerce.repository.ProductRepository;
+import com.e.commerce.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -48,6 +51,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final StockRepository stockRepository;
 
     /**
      * Lista todos os produtos com paginação.
@@ -57,7 +61,7 @@ public class ProductService {
      */
     @Transactional(readOnly = true)
     public Page<ProductResponse> findAll(Pageable pageable) {
-        log.debug("Listando produtos - página: {}, tamanho: {}", 
+        log.debug("Listando produtos - página: {}, tamanho: {}",
             pageable.getPageNumber(), pageable.getPageSize());
         return productRepository.findAll(pageable)
                 .map(this::toResponse);
@@ -100,23 +104,24 @@ public class ProductService {
      */
     @Transactional
     public ProductResponse create(ProductRequest request) {
-        log.info("Criando novo produto - nome: {}, categorias: {}", 
+        log.info("Criando novo produto - nome: {}, categorias: {}",
             request.getName(), Arrays.toString(request.getCategories()));
-        
+
         try {
             Product product = new Product();
             copyRequestToEntity(request, product);
-            
+
             log.debug("Validações passaram, salvando produto: {}", request.getName());
             Product saved = productRepository.save(product);
-            
-            log.info("Produto criado com sucesso - ID: {}, Nome: {}", 
+            stockRepository.save(Stock.criar(saved, 0));
+
+            log.info("Produto criado com sucesso - ID: {}, Nome: {}",
                 saved.getId(), saved.getName());
             return toResponse(saved);
-            
-        } catch (Exception e) {
-            log.error("Erro ao criar produto", e);
-            throw new DatabaseException("Erro ao criar produto: " + e.getMessage());
+
+        } catch (DataIntegrityViolationException e) {
+            log.error("Erro ao criar produto por conflito de integridade");
+            throw new DatabaseException("Erro ao criar produto");
         }
     }
 
@@ -137,7 +142,7 @@ public class ProductService {
     @Transactional
     public ProductResponse update(UUID id, ProductRequest request) {
         log.info("Atualizando produto - ID: {}, novo nome: {}", id, request.getName());
-        
+
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> {
                     log.warn("Produto não encontrado para atualização: {}", id);
@@ -146,7 +151,7 @@ public class ProductService {
 
         copyRequestToEntity(request, product);
         Product updated = productRepository.save(product);
-        
+
         log.info("Produto atualizado com sucesso - ID: {}", id);
         return toResponse(updated);
     }
@@ -168,16 +173,19 @@ public class ProductService {
     @Transactional
     public void delete(UUID id) {
         log.warn("Deletando produto - ID: {}", id);
-        
+
         if (!productRepository.existsById(id)) {
             log.error("Tentativa de deletar produto inexistente: {}", id);
             throw new ResourceNotFoundException("Produto nao encontrado");
         }
 
         try {
+            stockRepository.findByProductIdForUpdate(id).ifPresent(stockRepository::delete);
+            stockRepository.flush();
             productRepository.deleteById(id);
+            productRepository.flush();
             log.info("Produto deletado com sucesso - ID: {}", id);
-            
+
         } catch (DataIntegrityViolationException e) {
             log.error("Não é possível deletar produto com pedidos vinculados - ID: {}", id);
             throw new DatabaseException("Produto nao pode ser removido pois esta vinculado a pedidos");
@@ -207,16 +215,23 @@ public class ProductService {
         product.setPrice(request.getPrice());
         product.setImageUrl(request.getImageUrl());
 
+        if (request.getCategories() == null || request.getCategories().length == 0
+                || Arrays.stream(request.getCategories()).anyMatch(name -> name == null || name.isBlank())) {
+            throw new InvalidRequestException("Informe categorias validas e preenchidas");
+        }
         Set<Category> categories = new LinkedHashSet<>();
         Arrays.stream(request.getCategories())
                 .map(String::trim)
                 .filter(name -> !name.isBlank())
                 .forEach(name -> {
-                    Category category = categoryRepository.findByNameIgnoreCase(name)
-                            .orElseThrow(() -> {
-                                log.error("Categoria não encontrada: {}", name);
-                                return new ResourceNotFoundException("Categoria nao encontrada: " + name);
-                            });
+                    List<Category> matches = categoryRepository.findAllByNameIgnoreCase(name);
+                    if (matches.isEmpty()) {
+                        throw new ResourceNotFoundException("Categoria nao encontrada: " + name);
+                    }
+                    if (matches.size() > 1) {
+                        throw new InvalidRequestException("Nome de categoria ambiguo; informe uma categoria com nome unico");
+                    }
+                    Category category = matches.getFirst();
                     categories.add(category);
                 });
 
@@ -255,4 +270,3 @@ public class ProductService {
         );
     }
 }
-
