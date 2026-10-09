@@ -116,14 +116,14 @@ public class SecurityConfig {
     http
         // Configurar CORS usando bean do CorsConfig
         .cors(cors -> cors.configure(http))
-        
+
         // Desabilitar CSRF - API stateless usa JWT ao invés de CSRF tokens
         .csrf(csrf -> csrf.disable())
-        
+
         // Adicionar JwtAuthenticationFilter ANTES de UsernamePasswordAuthenticationFilter
         // Isto permite que JWT seja validado em cada requisição
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-        
+
          // Configurar autorização HTTP
          .authorizeHttpRequests(auth -> auth
              // Endpoints públicos (autenticação não requerida)

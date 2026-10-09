@@ -61,7 +61,7 @@ public class ProductService {
      */
     @Transactional(readOnly = true)
     public Page<ProductResponse> findAll(Pageable pageable) {
-        log.debug("Listando produtos - página: {}, tamanho: {}", 
+        log.debug("Listando produtos - página: {}, tamanho: {}",
             pageable.getPageNumber(), pageable.getPageSize());
         return productRepository.findAll(pageable)
                 .map(this::toResponse);
@@ -104,21 +104,21 @@ public class ProductService {
      */
     @Transactional
     public ProductResponse create(ProductRequest request) {
-        log.info("Criando novo produto - nome: {}, categorias: {}", 
+        log.info("Criando novo produto - nome: {}, categorias: {}",
             request.getName(), Arrays.toString(request.getCategories()));
-        
+
         try {
             Product product = new Product();
             copyRequestToEntity(request, product);
-            
+
             log.debug("Validações passaram, salvando produto: {}", request.getName());
             Product saved = productRepository.save(product);
             stockRepository.save(Stock.criar(saved, 0));
-            
-            log.info("Produto criado com sucesso - ID: {}, Nome: {}", 
+
+            log.info("Produto criado com sucesso - ID: {}, Nome: {}",
                 saved.getId(), saved.getName());
             return toResponse(saved);
-            
+
         } catch (DataIntegrityViolationException e) {
             log.error("Erro ao criar produto por conflito de integridade");
             throw new DatabaseException("Erro ao criar produto");
@@ -142,7 +142,7 @@ public class ProductService {
     @Transactional
     public ProductResponse update(UUID id, ProductRequest request) {
         log.info("Atualizando produto - ID: {}, novo nome: {}", id, request.getName());
-        
+
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> {
                     log.warn("Produto não encontrado para atualização: {}", id);
@@ -151,7 +151,7 @@ public class ProductService {
 
         copyRequestToEntity(request, product);
         Product updated = productRepository.save(product);
-        
+
         log.info("Produto atualizado com sucesso - ID: {}", id);
         return toResponse(updated);
     }
@@ -173,7 +173,7 @@ public class ProductService {
     @Transactional
     public void delete(UUID id) {
         log.warn("Deletando produto - ID: {}", id);
-        
+
         if (!productRepository.existsById(id)) {
             log.error("Tentativa de deletar produto inexistente: {}", id);
             throw new ResourceNotFoundException("Produto nao encontrado");
@@ -185,7 +185,7 @@ public class ProductService {
             productRepository.deleteById(id);
             productRepository.flush();
             log.info("Produto deletado com sucesso - ID: {}", id);
-            
+
         } catch (DataIntegrityViolationException e) {
             log.error("Não é possível deletar produto com pedidos vinculados - ID: {}", id);
             throw new DatabaseException("Produto nao pode ser removido pois esta vinculado a pedidos");

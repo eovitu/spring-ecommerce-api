@@ -64,4 +64,3 @@
 
 ## Pendências de política
 Revogação JWT imediata, rate limit distribuído, teto de paginação e paginação de listagens gerais permanecem riscos documentados até avaliação de contrato e implantação. Não declarar proteção inexistente.
-

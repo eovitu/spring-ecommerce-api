@@ -70,10 +70,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * @throws IOException se erro de I/O
      */
     @Override
-    protected void doFilterInternal(HttpServletRequest request, 
+    protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        
+
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             log.debug("Header Authorization não encontrado ou formato inválido");
@@ -95,7 +95,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             email,
                             jwtService.extractRole(token)
                     );
-                    
+
                     var authToken = new UsernamePasswordAuthenticationToken(
                         user,
                         null,
@@ -117,4 +117,3 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 }
-
