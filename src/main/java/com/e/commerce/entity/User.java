@@ -100,6 +100,15 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role;
 
+    @Column(name = "session_version", nullable = false)
+    @JsonIgnore
+    private long sessionVersion;
+
+    /** Revoga todas as sessões. Deve ser chamado sob lock na mesma transação. */
+    public void revokeSessions() {
+        sessionVersion = Math.incrementExact(sessionVersion);
+    }
+
     /**
      * Telefone do usuário (opcional).
      * Máximo 11 caracteres (padrão brasileiro).

@@ -31,6 +31,9 @@ class WebhookControllerTest {
     @MockitoBean
     private JwtService jwtService;
 
+    @MockitoBean
+    private com.e.commerce.repository.UserRepository userRepository;
+
     @Test
     void rejectsBlankConfiguredWebhookSecret() {
         assertThrows(

@@ -54,7 +54,7 @@ public class UserService {
 
     @Transactional
     public UserResponse update(UUID id, UserRequest request) {
-        User user = userRepository.findById(id)
+        User user = userRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario nao encontrado"));
 
         validateEmailUniqueness(request.getEmail(), id);
@@ -65,12 +65,11 @@ public class UserService {
 
     @Transactional
     public void delete(UUID id) {
-        if (!userRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Usuario nao encontrado");
-        }
-
+        User user = userRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario nao encontrado"));
         try {
-            userRepository.deleteById(id);
+            userRepository.delete(user);
+            userRepository.flush();
         } catch (DataIntegrityViolationException e) {
             throw new DatabaseException("Usuario nao pode ser removido pois possui registros vinculados");
         }
@@ -94,7 +93,12 @@ public class UserService {
         user.setName(request.getName());
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        if (user.getPassword() == null) {
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+        } else if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            user.revokeSessions();
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
         if (user.getRole() == null) {
             user.setRole(Role.USER);
         }

@@ -127,6 +127,7 @@ public class SecurityConfig {
          // Configurar autorização HTTP
          .authorizeHttpRequests(auth -> auth
              // Endpoints públicos (autenticação não requerida)
+             .requestMatchers(HttpMethod.POST, "/auth/logout").authenticated()
              .requestMatchers("/auth/**").permitAll()                                    // Login e register
              .requestMatchers(HttpMethod.POST, "/webhooks/payments").permitAll()
              .requestMatchers(HttpMethod.GET, "/api/v1/products/**").permitAll()        // GET produtos - público
@@ -136,6 +137,15 @@ public class SecurityConfig {
              // @PreAuthorize nos controllers define quem pode acessar
              .anyRequest().authenticated()
          )
+
+        .exceptionHandling(errors -> errors.defaultAuthenticationEntryPointFor(
+            (request, response, exception) -> {
+                response.setStatus(401);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"message\":\"Credenciais invalidas\"}");
+            }, request -> "POST".equals(request.getMethod()) && "/auth/logout".equals(request.getServletPath()))
+            .defaultAuthenticationEntryPointFor(
+                new org.springframework.security.web.authentication.Http403ForbiddenEntryPoint(), request -> true))
 
         // Configurar gerenciamento de sessão
         .sessionManagement(session -> session
