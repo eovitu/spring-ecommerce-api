@@ -257,3 +257,6 @@ agent.md
 
 # Workspace de evidencias e scripts temporarios
 .superpowers/
+
+# Compatibilidade com arquivos locais ignorados em develop
+CLAUDE.md

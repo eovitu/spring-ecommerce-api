@@ -48,6 +48,9 @@ PowerShell:
 
 Flyway aplica migrations versionadas; Hibernate valida o schema. Não edite migrations aplicadas.
 O runtime da imagem executa como usuário `ecommerce`, sem root.
+Os comandos acima descrevem execução local. `startup.sh` oferece o mesmo fluxo Maven no Linux;
+`web.config` é um artefato histórico do Azure Windows, sem validação no ambiente implantado.
+Nenhum deploy saudável foi comprovado nesta entrega.
 
 ## Contratos e documentação
 
@@ -59,6 +62,8 @@ O runtime da imagem executa como usuário `ecommerce`, sem root.
 Checkout reserva estoque por 15 minutos. `POST /payments` reutiliza a intenção existente,
 sem confirmar pagamento. O webhook simulado exige segredo externo; confirmação após expiração
 leva à reconciliação pendente. Não existe estorno automático nem integração financeira real.
+Produtos novos começam com estoque zero. Não existe endpoint administrativo de reposição
+nesta entrega. O catálogo recebe `imageUrl`; upload de arquivos permanece uma evolução separada.
 Eventos de expiração ficam persistidos em outbox. Um evento só recebe `published_at` após ACK
 correlacionado do RabbitMQ e ausência de retorno por rota inexistente. NACK, retorno, timeout,
 interrupção ou indisponibilidade mantêm o lote pendente via rollback para nova tentativa.
