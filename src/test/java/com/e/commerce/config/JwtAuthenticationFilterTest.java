@@ -1,140 +1,75 @@
 package com.e.commerce.config;
 
+import com.e.commerce.entity.User;
 import com.e.commerce.enums.Role;
+import com.e.commerce.repository.UserRepository;
 import com.e.commerce.service.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.*;
 import org.springframework.security.core.context.SecurityContextHolder;
-
-import java.io.IOException;
-import java.util.UUID;
-
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import java.util.*;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class JwtAuthenticationFilterTest {
+    @Mock JwtService jwt;
+    @Mock UserRepository users;
+    @Mock FilterChain chain;
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    MockHttpServletResponse response = new MockHttpServletResponse();
+    @AfterEach void clear() { SecurityContextHolder.clearContext(); }
 
-    @Mock
-    private JwtService jwtService;
-
-    @Mock
-    private HttpServletRequest request;
-
-    @Mock
-    private HttpServletResponse response;
-
-    @Mock
-    private FilterChain filterChain;
-
-    @Test
-    void invalidTokenDetailsAreNotLogged() throws Exception {
-        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(JwtAuthenticationFilter.class);
-        var originalLevel = logger.getLevel();
-        var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
-        appender.start();
-        logger.addAppender(appender);
-        logger.setLevel(ch.qos.logback.classic.Level.DEBUG);
+    private User validClaims() {
+        User u=new User(); u.setId(UUID.randomUUID()); u.setEmail("private-customer@example.com"); u.setRole(Role.USER);
+        request.addHeader("Authorization","Bearer private-token");
+        when(jwt.extractUsername("private-token")).thenReturn(u.getEmail());
+        when(jwt.extractUserId("private-token")).thenReturn(u.getId());
+        when(jwt.extractRole("private-token")).thenReturn(u.getRole());
+        when(jwt.extractSessionVersion("private-token")).thenReturn(0L);
+        when(jwt.isTokenValid("private-token",u.getEmail())).thenReturn(true);
+        return u;
+    }
+    private void run() throws Exception { new JwtAuthenticationFilter(jwt,users).doFilterInternal(request,response,chain); }
+    @Test void validTokenUsesPersistedIdentityWithoutLoggingIt() throws Exception {
+        var logger=(ch.qos.logback.classic.Logger)org.slf4j.LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+        var appender=new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        appender.start();logger.addAppender(appender);
         try {
-            when(request.getHeader("Authorization")).thenReturn("Bearer private-token");
-            when(jwtService.extractUsername("private-token"))
-                    .thenThrow(new IllegalArgumentException("private-token private-claim"));
-            new JwtAuthenticationFilter(jwtService).doFilterInternal(request, response, filterChain);
-            org.junit.jupiter.api.Assertions.assertFalse(appender.list.stream()
-                    .anyMatch(event -> event.getFormattedMessage().contains("private-")));
-            org.junit.jupiter.api.Assertions.assertNull(SecurityContextHolder.getContext().getAuthentication());
-            verify(filterChain, times(1)).doFilter(request, response);
-        } finally {
-            logger.detachAppender(appender);
-            logger.setLevel(originalLevel);
-            appender.stop();
-        }
+            User u=validClaims();when(users.findById(u.getId())).thenReturn(Optional.of(u));run();
+            assertNotNull(SecurityContextHolder.getContext().getAuthentication());verify(chain).doFilter(request,response);
+            assertTrue(appender.list.stream().noneMatch(e->e.getFormattedMessage().contains("private-")));
+        } finally { logger.detachAppender(appender);appender.stop(); }
     }
-
-    @Test
-    void validTokenDoesNotLogIdentity() throws Exception {
-        assertIdentityIsNotLogged(true);
+    @Test void revokedVersionIs401() throws Exception {
+        User u=validClaims();u.setSessionVersion(1);when(users.findById(u.getId())).thenReturn(Optional.of(u));run();
+        assertEquals(401,response.getStatus());assertNull(SecurityContextHolder.getContext().getAuthentication());verifyNoInteractions(chain);
     }
-
-    @Test
-    void rejectedTokenDoesNotLogExtractedIdentity() throws Exception {
-        assertIdentityIsNotLogged(false);
+    @Test void missingUserIs401() throws Exception {
+        User u=validClaims();when(users.findById(u.getId())).thenReturn(Optional.empty());run();assertEquals(401,response.getStatus());
     }
-
-    private void assertIdentityIsNotLogged(boolean valid) throws Exception {
-        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(JwtAuthenticationFilter.class);
-        var originalLevel = logger.getLevel();
-        var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
-        appender.start();
-        logger.addAppender(appender);
-        logger.setLevel(ch.qos.logback.classic.Level.DEBUG);
-        try {
-            String email = "private-customer@example.com";
-            when(request.getHeader("Authorization")).thenReturn("Bearer private-token");
-            when(jwtService.extractUsername("private-token")).thenReturn(email);
-            when(jwtService.isTokenValid("private-token", email)).thenReturn(valid);
-            if (valid) {
-                when(jwtService.extractUserId("private-token")).thenReturn(UUID.randomUUID());
-                when(jwtService.extractRole("private-token")).thenReturn(Role.USER);
-            }
-            new JwtAuthenticationFilter(jwtService).doFilterInternal(request, response, filterChain);
-            org.junit.jupiter.api.Assertions.assertFalse(appender.list.stream()
-                    .anyMatch(event -> event.getFormattedMessage().contains("private-")
-                            || event.getFormattedMessage().contains("USER")));
-            org.junit.jupiter.api.Assertions.assertEquals(valid,
-                    SecurityContextHolder.getContext().getAuthentication() != null);
-            verify(filterChain, times(1)).doFilter(request, response);
-        } finally {
-            logger.detachAppender(appender);
-            logger.setLevel(originalLevel);
-            appender.stop();
-        }
+    @Test void databaseFailureIs503AndNeverAuthenticates() throws Exception {
+        User u=validClaims();when(users.findById(u.getId())).thenThrow(new org.springframework.dao.DataAccessResourceFailureException("private-db"));
+        run();assertEquals(503,response.getStatus());assertFalse(response.getContentAsString().contains("private"));
+        assertNull(SecurityContextHolder.getContext().getAuthentication());verifyNoInteractions(chain);
     }
-
-    @AfterEach
-    void clearSecurityContext() {
-        SecurityContextHolder.clearContext();
+    @Test void connectionTransactionFailureIs503() throws Exception {
+        User u=validClaims();when(users.findById(u.getId())).thenThrow(new org.springframework.transaction.CannotCreateTransactionException("private-db"));
+        run();assertEquals(503,response.getStatus());assertNull(SecurityContextHolder.getContext().getAuthentication());verifyNoInteractions(chain);
     }
-
-    @Test
-    void doesNotExecuteTheChainTwiceWhenDownstreamFails() throws Exception {
-        String token = "valid-token";
-        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
-        when(jwtService.extractUsername(token)).thenReturn("customer@example.com");
-        when(jwtService.isTokenValid(token, "customer@example.com")).thenReturn(true);
-        when(jwtService.extractUserId(token)).thenReturn(UUID.randomUUID());
-        when(jwtService.extractRole(token)).thenReturn(Role.USER);
-        org.mockito.Mockito.doThrow(new ServletException("downstream failure"))
-                .when(filterChain).doFilter(request, response);
-
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtService);
-
-        assertThrows(
-                ServletException.class,
-                () -> filter.doFilterInternal(request, response, filterChain)
-        );
-        verify(filterChain, times(1)).doFilter(request, response);
+    @Test void invalidTokenDetailsAreNotExposed() throws Exception {
+        request.addHeader("Authorization","Bearer private-token");when(jwt.extractUsername("private-token")).thenThrow(new IllegalArgumentException("private-claim"));
+        run();assertEquals(401,response.getStatus());assertFalse(response.getContentAsString().contains("private"));verifyNoInteractions(users,chain);
     }
-
-    @Test
-    void invalidTokenStillExecutesTheChainOnlyOnce() throws IOException, ServletException {
-        String token = "invalid-token";
-        when(request.getHeader("Authorization")).thenReturn("Bearer " + token);
-        when(jwtService.extractUsername(token)).thenThrow(new IllegalArgumentException("invalid token"));
-
-        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtService);
-
-        filter.doFilterInternal(request, response, filterChain);
-
-        verify(filterChain, times(1)).doFilter(request, response);
+    @Test void doesNotExecuteChainTwiceWhenDownstreamFails() throws Exception {
+        User u=validClaims();when(users.findById(u.getId())).thenReturn(Optional.of(u));
+        doThrow(new ServletException("downstream")).when(chain).doFilter(request,response);
+        assertThrows(ServletException.class,this::run);verify(chain,times(1)).doFilter(request,response);
     }
+    @Test void anonymousRequestPreservesChain() throws Exception { run();verify(chain).doFilter(request,response);verifyNoInteractions(users,jwt); }
 }

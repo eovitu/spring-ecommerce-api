@@ -56,6 +56,8 @@ public class JwtService {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getId().toString());
         claims.put("role", user.getRole().name());
+        if (user.getSessionVersion() < 0) throw new IllegalArgumentException("Sessao invalida");
+        claims.put("sessionVersion", user.getSessionVersion());
         return generateToken(claims, user.getEmail());
     }
 
@@ -101,18 +103,31 @@ public class JwtService {
     }
 
     public UUID extractUserId(String token) {
-        return UUID.fromString(extractClaim(token, claims -> claims.get("userId", String.class)));
+        String value = extractClaim(token, claims -> claims.get("userId", String.class));
+        if (value == null) throw new IllegalArgumentException("Sessao invalida");
+        return UUID.fromString(value);
+    }
+
+    public long extractSessionVersion(String token) {
+        Object value = extractClaim(token, claims -> claims.get("sessionVersion"));
+        if (!(value instanceof Integer || value instanceof Long) || ((Number) value).longValue() < 0) {
+            throw new IllegalArgumentException("Sessao invalida");
+        }
+        return ((Number) value).longValue();
     }
 
     public Role extractRole(String token) {
-        return Role.valueOf(extractClaim(token, claims -> claims.get("role", String.class)));
+        String value = extractClaim(token, claims -> claims.get("role", String.class));
+        if (value == null) throw new IllegalArgumentException("Sessao invalida");
+        return Role.valueOf(value);
     }
 
     /**
      * Verifica se a data de expiração já foi atingida.
      */
     private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+        Date expiration = extractExpiration(token);
+        return expiration == null || !expiration.after(new Date());
     }
 
     /**

@@ -119,6 +119,12 @@ public class ResourceExceptionHandler {
                 Instant.now(), status.value(), "Invalid request parameter", "Parametro da requisicao invalido", request.getRequestURI()));
     }
 
+    @ExceptionHandler({org.springframework.dao.DataAccessException.class, org.springframework.transaction.TransactionException.class})
+    public ResponseEntity<StandardError> unavailable(HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(new StandardError(
+                Instant.now(), 503, "Service unavailable", "Servico temporariamente indisponivel", request.getRequestURI()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<StandardError> unexpectedError(Exception e, HttpServletRequest request) {
         String error = "Unexpected error";

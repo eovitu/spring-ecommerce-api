@@ -329,7 +329,7 @@ class InventoryConcurrencyPostgresTest {
     }
 
     @Test
-    void migrationsUpgradeFromV1ToV5AndPreserveExistingData() {
+    void migrationsUpgradeFromV1ToV6AndPreserveExistingData() {
         String schema = "upgrade_" + UUID.randomUUID().toString().replace("-", "");
         var initial = org.flywaydb.core.Flyway.configure().dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
                 .schemas(schema).defaultSchema(schema).target("1").load();
@@ -338,9 +338,9 @@ class InventoryConcurrencyPostgresTest {
                 UUID.randomUUID(), "Legacy", "Legacy description", BigDecimal.TEN, "legacy.png");
         var upgraded = org.flywaydb.core.Flyway.configure().dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
                 .schemas(schema).defaultSchema(schema).load();
-        assertEquals(4, upgraded.migrate().migrationsExecuted);
+        assertEquals(5, upgraded.migrate().migrationsExecuted);
         upgraded.validate();
-        assertEquals("5", upgraded.info().current().getVersion().getVersion());
+        assertEquals("6", upgraded.info().current().getVersion().getVersion());
         assertEquals(1, integer("SELECT COUNT(*) FROM " + schema + ".product"));
         assertEquals(1, integer("SELECT COUNT(*) FROM " + schema + ".stock"));
         assertEquals(0, integer("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = ? AND table_name = 'stock' AND column_name = 'version'", schema));
