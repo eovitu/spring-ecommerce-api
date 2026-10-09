@@ -23,41 +23,42 @@
 ### Task 1: Segurança e contratos HTTP
 **Files:** ResourceExceptionHandler.java, dto/request/UserRequest.java, LoginRequest.java, nova constraint UTF-8 em validation/, config/JwtAuthenticationFilter.java apenas sanitização de logs se necessária, testes novos de validação/handler.
 **Interfaces:** Produz contratos compatíveis de senha e respostas 500 genéricas; não muda formato StandardError.
-- [ ] Reproduzir vazamento de mensagem 500 e limitação real do BCrypt com teste.
-- [ ] Implementar validação UTF-8 de 72 bytes no cadastro e login, preservando mínimos existentes; login aceita toda senha cadastrável. Rejeitar JSON inválido com 400 genérico.
-- [ ] Rodar testes focados e revisar; commit fix(security).
+- [x] Reproduzir vazamento de mensagem 500 e limitação real do BCrypt com teste.
+- [x] Implementar validação UTF-8 de 72 bytes no cadastro e login, preservando mínimos existentes; login aceita toda senha cadastrável. Rejeitar JSON inválido com 400 genérico.
+- [x] Rodar testes focados e revisar; commit fix(security).
 
 ### Task 2: Consistência comercial e persistência
 **Files:** PaymentService.java, PaymentWebhookService.java, ProductService.java, entity/Product.java, dto/request/ProductRequest.java, OrderRequest.java, service/OrderService.java, migration V5__align_product_contract.sql, testes services/domain correspondentes.
 **Interfaces:** Consome contratos existentes; produz POST pagamento repetível, webhook idempotente e catálogo consistente com schema.
-- [ ] Escrever regressões de pagamento existente; eventos com novo ID em PAGO/ENVIADO/ENTREGUE/RECONCILIACAO_PENDENTE; null e overflow de SKU.
-- [ ] Corrigir intenção usando lock do pedido; não baixar reserva já consumida, não reconciliar estado novamente.
-- [ ] Excluir estoque antes de produto apenas quando não houver histórico; garantir flush e rollback.
-- [ ] Preservar contrato de 500 caracteres via V5/JPA; @Digits(integer=36,fraction=2); categorias null com validação; null item inválido e overflow com resposta de cliente.
-- [ ] Rodar regressões focadas e revisar; commits por assunto.
+- [x] Escrever regressões de pagamento existente; eventos com novo ID em PAGO/ENVIADO/ENTREGUE/RECONCILIACAO_PENDENTE; null e overflow de SKU.
+- [x] Corrigir intenção usando lock do pedido; não baixar reserva já consumida, não reconciliar estado novamente.
+- [x] Excluir estoque antes de produto apenas quando não houver histórico; garantir flush e rollback.
+- [x] Preservar contrato de 500 caracteres via V5/JPA; @Digits(integer=36,fraction=2); categorias null com validação; null item inválido e overflow com resposta de cliente.
+- [x] Rodar regressões focadas e revisar; commits por assunto.
 
 ### Task 3: Execução reproduzível e CI
 **Files:** pom.xml, Dockerfile, .dockerignore, docker-compose.yml, .github/workflows/main_ecommercevitinho.yml, novo workflow ci.yml, InventoryConcurrencyPostgresTest.java, README.md.
 **Interfaces:** Consome Task 2/schema; produz suíte PostgreSQL isolada, Java 21 e OpenAPI compatível.
-- [ ] Migrar teste para Testcontainers PostgreSQL, sem URL externa/destructive reset de banco existente; adicionar provas PostgreSQL para exclusão, limites de catálogo e migrations.
-- [ ] Atualizar Spring Boot para patch 4.0.8 por advisories OSV e SpringDoc para linha 3 compatível; repetir scan de dependências, comprovar /v3/api-docs em app real de teste autenticado.
-- [ ] CI em PR develop com Java 21 e Docker; deploy existente somente após validação, não ampliar alvo automaticamente.
-- [ ] Volumes nomeados, portas locais de infra, runtime não root e dockerignore.
-- [ ] README factual com configuração, Windows/Linux, pagamentos simulados, CI e limitações.
-- [ ] Executar suíte/build, revisar; commits por assunto.
+- [x] Migrar teste para Testcontainers PostgreSQL, sem URL externa/destructive reset de banco existente; adicionar provas PostgreSQL para exclusão, limites de catálogo e migrations.
+- [x] Atualizar Spring Boot para patch 4.0.8 por advisories OSV e SpringDoc para linha 3 compatível; repetir scan de dependências, comprovar /v3/api-docs em app real de teste autenticado.
+- [x] CI em PR develop com Java 21 e Docker; deploy existente somente após validação, não ampliar alvo automaticamente.
+- [x] Volumes nomeados, portas locais de infra, runtime não root e dockerignore.
+- [x] README factual com configuração, Windows/Linux, pagamentos simulados, CI e limitações.
+- [x] Executar suíte/build, revisar; commits por assunto.
 
 ### Task 4: Outbox sem perda por rota ausente
 **Files:** service/OutboxPublisher.java, application.properties, OutboxPublisherTest.java, novo OutboxRoutingRabbitIntegrationTest.java, README.md apenas seção outbox.
 **Interfaces:** Consome outbox existente e schema; mantém payload orderId e adiciona messageId estável para deduplicação.
-- [ ] Reproduzir com broker descartável: rota ausente devolve mensagem apesar de ACK; execução antiga marca evento publicado indevidamente. Probe real já confirmou BROKER_ACK=true RETURNED_UNROUTABLE=true em .superpowers/sdd/ecommerce-audit/outbox-route-probe.log.
-- [ ] Usar confirmação correlacionada por evento e verificar returned antes de marcar; NACK, timeout, conexão indisponível ou retorno mantêm evento pendente via rollback. ID de mensagem é UUID persistido do outbox; não mudar payload JSON.
-- [ ] Testar broker real para rota ausente, rota existente, messageId e retry; validar teste unitário de falha e rollback PostgreSQL existente.
-- [ ] Executar testes focados e suíte, revisar; commit fix(outbox).
+- [x] Reproduzir com broker descartável: rota ausente devolve mensagem apesar de ACK; execução antiga marca evento publicado indevidamente. Probe real já confirmou BROKER_ACK=true RETURNED_UNROUTABLE=true em .superpowers/sdd/ecommerce-audit/outbox-route-probe.log.
+- [x] Usar confirmação correlacionada por evento e verificar returned antes de marcar; NACK, timeout, conexão indisponível ou retorno mantêm evento pendente via rollback. ID de mensagem é UUID persistido do outbox; não mudar payload JSON.
+- [x] Testar broker real para rota ausente, rota existente, messageId e retry; validar teste unitário de falha e rollback PostgreSQL existente.
+- [x] Executar testes focados e suíte, revisar; commit fix(outbox).
 
 ### Task 5: Revisão e publicação
 **Files:** relatório docs/audit/2026-10-08-results.md e ledger ignorado.
-- [ ] Auditar segredos atuais/histórico sem imprimir valores; consultar dependências em fonte primária/scanner.
+- [x] Auditar segredos atuais/histórico sem imprimir valores; consultar dependências em fonte primária/scanner.
 - [ ] Revisão independente de requisitos e código completo; corrigir achados relevantes via agente.
+- [ ] Rodada única dos três P2 finais: 409/log sem detalhe de banco; parâmetros inválidos como 4xx; categorias ambíguas rejeitadas sem regra nova de unicidade. Regressões HTTP/PostgreSQL, accessor de confirmação suportado, suíte e revisão delimitada da correção.
 - [ ] Atualizar base remota, revisar diff/mergeabilidade, push e PR para develop, CI remoto.
 - [ ] Merge somente com checks aprovados e sem conflito funcional. Investigar implantação; redeploy somente compatível com configuração atual verificada. Registrar impedimentos sem contornar checks.
 

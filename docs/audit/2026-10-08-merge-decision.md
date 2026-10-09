@@ -1,7 +1,7 @@
 # Conflitos de integração com develop
 
 ## Estado verificado
-Worktree de correções: fix/ecommerce-audit, iniciado em 69197ab. Destino remoto: origin/develop f4d54ba. O comando git merge-tree --write-tree --name-only HEAD origin/develop detectou 29 arquivos conflitantes; não houve merge nem alteração do checkout por esse comando.
+Worktree de correções: fix/ecommerce-audit, iniciado em 69197ab. Destino remoto: origin/develop f4d54ba. O comando git merge-tree --write-tree --name-only HEAD origin/develop detectou 28 arquivos conflitantes; não houve merge nem alteração do checkout por esse comando.
 
 ## Dois lados dos conflitos funcionais
 | Fluxo | develop remoto | Implementação local mais recente |
