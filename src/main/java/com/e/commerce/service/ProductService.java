@@ -120,8 +120,8 @@ public class ProductService {
             return toResponse(saved);
             
         } catch (DataIntegrityViolationException e) {
-            log.error("Erro ao criar produto", e);
-            throw new DatabaseException("Erro ao criar produto: " + e.getMessage());
+            log.error("Erro ao criar produto por conflito de integridade");
+            throw new DatabaseException("Erro ao criar produto");
         }
     }
 
@@ -224,11 +224,14 @@ public class ProductService {
                 .map(String::trim)
                 .filter(name -> !name.isBlank())
                 .forEach(name -> {
-                    Category category = categoryRepository.findByNameIgnoreCase(name)
-                            .orElseThrow(() -> {
-                                log.error("Categoria não encontrada: {}", name);
-                                return new ResourceNotFoundException("Categoria nao encontrada: " + name);
-                            });
+                    List<Category> matches = categoryRepository.findAllByNameIgnoreCase(name);
+                    if (matches.isEmpty()) {
+                        throw new ResourceNotFoundException("Categoria nao encontrada: " + name);
+                    }
+                    if (matches.size() > 1) {
+                        throw new InvalidRequestException("Nome de categoria ambiguo; informe uma categoria com nome unico");
+                    }
+                    Category category = matches.getFirst();
                     categories.add(category);
                 });
 
@@ -267,4 +270,3 @@ public class ProductService {
         );
     }
 }
-

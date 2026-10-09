@@ -64,7 +64,7 @@ class OutboxRoutingRabbitIntegrationTest {
             ArgumentCaptor<MessagePostProcessor> processors = ArgumentCaptor.forClass(MessagePostProcessor.class);
             ArgumentCaptor<CorrelationData> correlations = ArgumentCaptor.forClass(CorrelationData.class);
             verify(template, times(2)).convertAndSend(eq(""), eq("orders.expired"), eq(event.getPayload()), processors.capture(), correlations.capture());
-            assertTrue(correlations.getAllValues().get(0).getFuture().join().isAck());
+            assertTrue(correlations.getAllValues().get(0).getFuture().join().ack());
             assertNotNull(correlations.getAllValues().get(0).getReturned());
             assertNull(correlations.getAllValues().get(1).getReturned());
             for (MessagePostProcessor processor : processors.getAllValues()) {

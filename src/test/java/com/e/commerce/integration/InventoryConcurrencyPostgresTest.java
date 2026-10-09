@@ -102,6 +102,32 @@ class InventoryConcurrencyPostgresTest {
         );
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"Livros", "livros"})
+    void ambiguousCategoryIsExplicitClientErrorWithoutChangingData(String duplicate) {
+        jdbcTemplate.update("INSERT INTO category (id,name) VALUES (?,?)", UUID.randomUUID(), "Livros");
+        jdbcTemplate.update("INSERT INTO category (id,name) VALUES (?,?)", UUID.randomUUID(), duplicate);
+        var request = new com.e.commerce.dto.request.ProductRequest("Product", "Description", BigDecimal.TEN,
+                "https://example.com/a", new String[]{"Livros"});
+        var createError = assertThrows(com.e.commerce.exception.InvalidRequestException.class,
+                () -> productService.create(request));
+        assertEquals("Nome de categoria ambiguo; informe uma categoria com nome unico", createError.getMessage());
+        assertThrows(com.e.commerce.exception.InvalidRequestException.class,
+                () -> productService.update(productId, request));
+        assertEquals(2, integer("SELECT COUNT(*) FROM category"));
+        assertEquals(1, integer("SELECT COUNT(*) FROM product"));
+        assertEquals(0, integer("SELECT COUNT(*) FROM tb_product_category"));
+    }
+
+    @Test void uniqueCategoryResolvesIgnoringCase() {
+        UUID categoryId = UUID.randomUUID();
+        jdbcTemplate.update("INSERT INTO category (id,name) VALUES (?,?)", categoryId, "Livros");
+        var request = new com.e.commerce.dto.request.ProductRequest("Product", "Description", BigDecimal.TEN,
+                "https://example.com/a", new String[]{"livros"});
+        var created = productService.create(request);
+        assertEquals(categoryId, created.getCategories().getFirst().getId());
+        assertEquals(categoryId, productService.update(productId, request).getCategories().getFirst().getId());
+    }
     @Test
     void concurrentCheckoutsNeverReserveMoreThanAvailableStock() throws Exception {
         int availableStock = 3;

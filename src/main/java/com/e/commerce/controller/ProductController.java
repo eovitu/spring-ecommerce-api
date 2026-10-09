@@ -68,6 +68,9 @@ public class ProductController {
     public ResponseEntity<Page<ProductResponse>> findAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
+        if (page < 0 || size <= 0) {
+            throw new com.e.commerce.exception.InvalidRequestException("Paginacao invalida");
+        }
         return ResponseEntity.ok(productService.findAll(PageRequest.of(page, size)));
     }
 
@@ -206,4 +209,3 @@ public class ProductController {
         return ResponseEntity.noContent().build();
     }
 }
-

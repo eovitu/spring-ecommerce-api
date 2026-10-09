@@ -37,7 +37,7 @@ public class OutboxPublisher {
             }, correlation);
             try {
                 CorrelationData.Confirm confirm = correlation.getFuture().get(5, TimeUnit.SECONDS);
-                if (!confirm.isAck() || correlation.getReturned() != null) {
+                if (!confirm.ack() || correlation.getReturned() != null) {
                     throw new AmqpException("Publicacao de outbox nao confirmada ou sem rota");
                 }
             } catch (InterruptedException exception) {

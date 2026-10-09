@@ -64,7 +64,7 @@ class ProductInventoryServiceTest {
     void newProductStartsWithZeroStockInsteadOfMissingStockRow() {
         Category category = new Category();
         category.setName("Category");
-        when(categoryRepository.findByNameIgnoreCase("Category")).thenReturn(Optional.of(category));
+        when(categoryRepository.findAllByNameIgnoreCase("Category")).thenReturn(java.util.List.of(category));
         when(productRepository.save(any(Product.class))).thenAnswer(invocation -> {
             Product product = invocation.getArgument(0);
             product.setId(UUID.randomUUID());

@@ -112,6 +112,13 @@ public class ResourceExceptionHandler {
                 Instant.now(), status.value(), "Validation error", e.getMessage(), request.getRequestURI()));
     }
 
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<StandardError> invalidRequestParameter(HttpServletRequest request) {
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+        return ResponseEntity.status(status).body(new StandardError(
+                Instant.now(), status.value(), "Invalid request parameter", "Parametro da requisicao invalido", request.getRequestURI()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<StandardError> unexpectedError(Exception e, HttpServletRequest request) {
         String error = "Unexpected error";
@@ -120,4 +127,3 @@ public class ResourceExceptionHandler {
         return ResponseEntity.status(status).body(err);
     }
 }
-
