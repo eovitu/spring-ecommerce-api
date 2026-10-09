@@ -6,6 +6,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -14,19 +16,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.Instant;
 
 /**
- * Handler global de exceções da aplicação.
- *
- * Intercepta todas as exceptions lançadas pelos controllers/services
- * e retorna respostas HTTP padronizadas com DTOs de erro.
- *
- * Handlers disponíveis:
- * 1. ResourceNotFoundException → 404
- * 2. DatabaseException → 409
- * 3. UnauthorizedException → 401
- * 4. ForbiddenException → 403
- * 5. MethodArgumentNotValidException → 422
- * 6. DataIntegrityViolationException → 409
- * 7. Exception (fallback) → 500
+ * Centraliza a tradução das exceções da aplicação para respostas HTTP padronizadas.
  */
 @RestControllerAdvice
 public class ResourceExceptionHandler {
@@ -63,10 +53,20 @@ public class ResourceExceptionHandler {
         return ResponseEntity.status(status).body(err);
     }
 
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<StandardError> accessDenied(AccessDeniedException e, HttpServletRequest request) {
+        String error = "Forbidden";
+        HttpStatus status = HttpStatus.FORBIDDEN;
+        StandardError err = new StandardError(
+                Instant.now(), status.value(), error, "Acesso negado", request.getRequestURI()
+        );
+        return ResponseEntity.status(status).body(err);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ValidationError> validation(MethodArgumentNotValidException e, HttpServletRequest request) {
         String error = "Validation error";
-        HttpStatus status = HttpStatus.UNPROCESSABLE_ENTITY;
+        HttpStatus status = HttpStatus.UNPROCESSABLE_CONTENT;
         ValidationError err = new ValidationError(Instant.now(), status.value(), error, "Erro de validacao", request.getRequestURI());
 
         for (FieldError f : e.getBindingResult().getFieldErrors()) {
@@ -77,35 +77,53 @@ public class ResourceExceptionHandler {
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<StandardError> dataIntegrityViolation(DataIntegrityViolationException e, HttpServletRequest request) {
+    public ResponseEntity<StandardError> dataIntegrityViolation(HttpServletRequest request) {
         String error = "Database integrity violation";
         HttpStatus status = HttpStatus.CONFLICT;
         StandardError err = new StandardError(Instant.now(), status.value(), error, "Violacao de integridade dos dados", request.getRequestURI());
         return ResponseEntity.status(status).body(err);
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<StandardError> illegalArgument(IllegalArgumentException e, HttpServletRequest request) {
-        String error = "Validation error";
-        HttpStatus status = HttpStatus.BAD_REQUEST;
-        StandardError err = new StandardError(Instant.now(), status.value(), error, e.getMessage(), request.getRequestURI());
+    @ExceptionHandler(InsufficientStockException.class)
+    public ResponseEntity<StandardError> insufficientStock(
+            InsufficientStockException e,
+            HttpServletRequest request
+    ) {
+        HttpStatus status = HttpStatus.CONFLICT;
+        StandardError err = new StandardError(
+                Instant.now(), status.value(), "Insufficient stock", e.getMessage(), request.getRequestURI()
+        );
         return ResponseEntity.status(status).body(err);
     }
 
-    @ExceptionHandler(FileStorageException.class)
-    public ResponseEntity<StandardError> fileStorage(FileStorageException e, HttpServletRequest request) {
-        String error = "File storage error";
-        HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
-        StandardError err = new StandardError(Instant.now(), status.value(), error, e.getMessage(), request.getRequestURI());
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<StandardError> invalidRequestBody(HttpServletRequest request) {
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+        StandardError err = new StandardError(
+                Instant.now(), status.value(), "Invalid request body", "Corpo da requisicao invalido", request.getRequestURI()
+        );
         return ResponseEntity.status(status).body(err);
+    }
+
+    @ExceptionHandler(InvalidRequestException.class)
+    public ResponseEntity<StandardError> invalidRequest(InvalidRequestException e, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.UNPROCESSABLE_CONTENT;
+        return ResponseEntity.status(status).body(new StandardError(
+                Instant.now(), status.value(), "Validation error", e.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<StandardError> invalidRequestParameter(HttpServletRequest request) {
+        HttpStatus status = HttpStatus.BAD_REQUEST;
+        return ResponseEntity.status(status).body(new StandardError(
+                Instant.now(), status.value(), "Invalid request parameter", "Parametro da requisicao invalido", request.getRequestURI()));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<StandardError> unexpectedError(Exception e, HttpServletRequest request) {
         String error = "Unexpected error";
         HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
-        StandardError err = new StandardError(Instant.now(), status.value(), error, e.getMessage(), request.getRequestURI());
+        StandardError err = new StandardError(Instant.now(), status.value(), error, "Erro interno do servidor", request.getRequestURI());
         return ResponseEntity.status(status).body(err);
     }
 }
-

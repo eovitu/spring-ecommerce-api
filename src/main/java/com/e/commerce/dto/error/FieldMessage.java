@@ -3,17 +3,7 @@ package com.e.commerce.dto.error;
 import lombok.Getter;
 
 /**
- * DTO que representa um campo inválido em erro de validação.
- *
- * Usado dentro de ValidationError para detalhar qual campo
- * específico falhou na validação e qual foi o erro.
- *
- * Exemplo:
- * - fieldName: "email"
- * - message: "Email invalido"
- *
- * - fieldName: "name"
- * - message: "Nome e obrigatorio"
+ * Representa o erro associado a um campo específico de validação.
  */
 @Getter
 public class FieldMessage {

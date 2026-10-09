@@ -14,6 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Implementa as regras de negócio de categorias e a conversão para DTO de resposta.
+ */
 @Service
 @RequiredArgsConstructor
 public class CategoryService {
@@ -64,6 +67,9 @@ public class CategoryService {
         }
     }
 
+    /**
+     * Converte a entidade para o contrato de resposta da API.
+     */
     private CategoryResponse toResponse(Category category) {
         return new CategoryResponse(category.getId(), category.getName());
     }

@@ -1,49 +1,262 @@
+# ============================================================================
+# Arquivos de Documentação
+# ============================================================================
 HELP.md
+README_BACKUP.md
+
+# ============================================================================
+# Diretórios de Build e Compilação (Maven/Gradle)
+# ============================================================================
 target/
+build/
+dist/
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+.gradletasknamecache
+
+# Diretório Maven
 .mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/maven-wrapper.properties
 !**/src/main/**/target/
 !**/src/test/**/target/
-CLAUDE.md
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
+# ============================================================================
+# Diretórios de Node.js e Frontend (Angular)
+# ============================================================================
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/.parcel-cache
+*.tgz
 
-### IntelliJ IDEA ###
+# ============================================================================
+# IDE: IntelliJ IDEA
+# ============================================================================
 .idea/
+.idea_modules/
 *.iws
 *.iml
 *.ipr
+*.iml.iws
+out/
+.DS_Store
 
-### NetBeans ###
+# ============================================================================
+# IDE: Eclipse / STS
+# ============================================================================
+.project
+.classpath
+.factorypath
+.c9/
+*.launch
+.settings/
+.springBeans
+.sts4-cache
+.texlipse
+
+# ============================================================================
+# IDE: VS Code
+# ============================================================================
+.vscode/
+.vscode-test/
+*.vsix
+.history/
+*.code-workspace
+
+# ============================================================================
+# IDE: NetBeans
+# ============================================================================
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
+/nbactions.xml
+/nb-configuration.xml
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
 
-### VS Code ###
-.vscode/
+# ============================================================================
+# IDE: Sublime Text
+# ============================================================================
+*.sublime-workspace
+*.sublime-project
 
-### Arquivos Sensíveis - NÃO COMMITAR ###
+# ============================================================================
+# IDE: JetBrains (genérico para todos)
+# ============================================================================
+*.swp
+*.swo
+*~
+.*.sw[a-z]
+*.jfm
+.jfm
+jfm-settings.xml
+
+# ============================================================================
+# Configurações Sensíveis - NÃO COMMITAR NUNCA!
+# ============================================================================
 .env
 .env.*
 !.env.example
-src/main/resources/.env
-src/main/resources/.env.*
+.env.local
+.env.*.local
+.env.production
+.env.staging
+.env.development
+application.properties
 application-prod.properties
+application-production.properties
 application-secret.properties
+application-dev.properties
+application-local.properties
+.properties.enc
+credentials.json
+secrets.json
+keys/
+private_keys/
+secrets/
+.secrets/
+*.pem
+*.key
+*.keystore
+passwords.*
+*.p12
+*.pkcs12
+*.jks
 
-### Arquivos de IDE e OS ###
+# ============================================================================
+# Arquivos de Log
+# ============================================================================
 *.log
-.DS_Store
-Thumbs.db
+*.log.*
+logs/
+log/
+**/logs/*
+**/log/*
+spring.*.log
 
+# ============================================================================
+# Arquivos de Sistema Operacional
+# ============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.AppleDouble
+.LSOverride
+*.cab
+
+# ============================================================================
+# Arquivos de Cache
+# ============================================================================
+*.cache
+.cache/
+.eslintcache
+.stylelintcache
+.prettier
+
+# ============================================================================
+# Dependências Compiladas
+# ============================================================================
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+!.mvn/wrapper/maven-wrapper.jar
+
+# ============================================================================
+# Arquivos de Teste e Cobertura
+# ============================================================================
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+jacoco.exec
+*.gcda
+*.gcno
+
+# ============================================================================
+# Arquivos de Banco de Dados
+# ============================================================================
+*.db
+*.sqlite
+*.sqlite3
+*.h2.db
+db/
+!src/main/resources/db/
+!src/main/resources/db/migration/
+!src/main/resources/db/migration/*.sql
+data/
+
+# ============================================================================
+# Arquivos de Streaming e Temporários
+# ============================================================================
+*.tmp
+*.temp
+*.bak
+*.backup
+*.swp
+*.orig
+
+# ============================================================================
+# Arquivos do npm
+# ============================================================================
+npm-debug.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn/cache
+.yarn/unplugged
+
+# ============================================================================
+# Arquivos de Deploy
+# ============================================================================
+dist/
+*.exe
+*.msi
+
+# ============================================================================
+# Compilação TypeScript/Angular
+# ============================================================================
+.tsbuildinfo
+
+# ============================================================================
+# Arquivos Office e Documentos
+# ============================================================================
+*.docx
+*.doc
+*.xlsx
+*.xls
+*.ppt
+*.pptx
+
+# ============================================================================
+# Arquivos de IDE não-oficiais
+# ============================================================================
+.classpath.eclipse
+.project.eclipse
+.settings.eclipse
+
+# ============================================================================
+# Arquivos de Configuração de Sistema
+# ============================================================================
+*.pid
+*.seed
+*.pid.lock
+
+# Regras locais do agente (não versionar alterações futuras)
+agent.md
+
+
+# Workspace de evidencias e scripts temporarios
+.superpowers/
+
+# Compatibilidade com arquivos locais ignorados em develop
+CLAUDE.md

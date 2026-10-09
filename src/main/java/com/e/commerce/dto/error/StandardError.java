@@ -8,15 +8,9 @@ import lombok.Setter;
 import java.time.Instant;
 
 /**
- * DTO de erro padrão da API.
+ * Representa a resposta padrão de erro da API.
  *
- * Representa qualquer erro genérico retornado pela aplicação.
- * Usado para erros como:
- * - Recurso não encontrado (404)
- * - Erro de banco de dados (409)
- * - Não autorizado (401)
- * - Proibido (403)
- * - Erro inesperado (500)
+ * <p>É utilizada para estruturar erros genéricos como 404, 409, 401, 403 e 500.
  */
 @Getter
 @Setter

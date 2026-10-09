@@ -16,6 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Implementa as regras de negócio de usuários e protege a integridade dos dados.
+ */
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -73,6 +76,9 @@ public class UserService {
         }
     }
 
+    /**
+     * Garante a unicidade do e-mail no contexto de criação e atualização.
+     */
     private void validateEmailUniqueness(String email, UUID currentUserId) {
         userRepository.findByEmail(email).ifPresent(existing -> {
             if (currentUserId == null || !existing.getId().equals(currentUserId)) {
@@ -81,6 +87,9 @@ public class UserService {
         });
     }
 
+    /**
+     * Copia os campos editáveis do request para a entidade persistente.
+     */
     private void copyRequestToEntity(UserRequest request, User user) {
         user.setName(request.getName());
         user.setEmail(request.getEmail());
@@ -91,6 +100,9 @@ public class UserService {
         }
     }
 
+    /**
+     * Converte a entidade em DTO sem expor atributos sensíveis.
+     */
     private UserResponse toResponse(User user) {
         return new UserResponse(user.getId(), user.getName(), user.getEmail(), user.getPhone());
     }

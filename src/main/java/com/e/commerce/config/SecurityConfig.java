@@ -1,12 +1,10 @@
 package com.e.commerce.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -15,91 +13,137 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import com.e.commerce.service.CustomUserDetailsService;
-
 /**
- * Configuração de segurança da aplicação.
+ * Configuração centralizada de segurança da aplicação.
  *
- * Responsabilidades:
- * 1. Configurar BCrypt para criptografia de senhas
- * 2. Configurar endpoints públicos e privados
- * 3. Desabilitar CSRF (não necessário em API REST stateless)
- * 4. Configurar sessão stateless (usa JWT ao invés de session)
+ * <p>Responsável por:
+ * <ul>
+ *   <li>Codificação segura de senhas (BCrypt)</li>
+ *   <li>Validação de tokens JWT (JwtAuthenticationFilter)</li>
+ *   <li>Autorização por role (@PreAuthorize)</li>
+ *   <li>Proteção contra CSRF (desabilitado para API stateless)</li>
+ *   <li>Configuração de CORS</li>
+ *   <li>Gerenciamento de sessão (stateless)</li>
+ * </ul>
+ *
+ * <p>Flow de Segurança:
+ * <ol>
+ *   <li>Cliente envia requisição com JWT no header Authorization</li>
+ *   <li>JwtAuthenticationFilter valida o token</li>
+ *   <li>SecurityContext é populado com usuário autenticado</li>
+ *   <li>@PreAuthorize verifica autorização (role)</li>
+ *   <li>Controller executa ou retorna 403 Forbidden</li>
+ * </ol>
+ *
+ * <p>Endpoints Públicos (sem autenticação):
+ * <ul>
+ *   <li>POST /auth/login - Autenticação</li>
+ *   <li>POST /auth/register - Registro de novo usuário</li>
+ *   <li>GET /api/v1/products - Listar produtos</li>
+ *   <li>GET /api/v1/categories - Listar categorias</li>
+ * </ul>
+ *
+ * <p>Endpoints Protegidos (requerem token e role):
+ * <ul>
+ *   <li>POST /api/v1/products - Requer ADMIN</li>
+ *   <li>PUT /api/v1/products/{id} - Requer ADMIN</li>
+ *   <li>DELETE /api/v1/products/{id} - Requer ADMIN</li>
+ *   <li>Similares para categories, users, orders, payments</li>
+ * </ul>
+ *
+ * @author E-Commerce Team
+ * @version 1.0
+ * @since 2026-04-17
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
+@RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final CustomUserDetailsService customUserDetailsService;
+  private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(
-            JwtAuthenticationFilter jwtAuthenticationFilter,
-            CustomUserDetailsService customUserDetailsService
-    ) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-        this.customUserDetailsService = customUserDetailsService;
-    }
+  /**
+   * Fornece o codificador de senhas padrão da aplicação.
+   *
+   * <p>BCrypt é recomendado para armazenamento seguro de senhas porque:
+   * <ul>
+   *   <li>Inclui salt aleatório (evita rainbow tables)</li>
+   *   <li>Tem custo computacional configurável (resiste a força bruta)</li>
+   *   <li>É lento de propósito (torna ataques computacionalmente caros)</li>
+   * </ul>
+   *
+   * <p>Exemplo de uso:
+   * <pre>
+   * {@code
+   * passwordEncoder.encode("senhaPlainText") // Retorna: $2a$10$... (hash)
+   * passwordEncoder.matches("senhaPlainText", hashArmazenado) // Retorna: true/false
+   * }
+   * </pre>
+   *
+   * @return {@link PasswordEncoder} configurado com BCrypt
+   */
+  @Bean
+  public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
 
-    /**
-     * Bean de PasswordEncoder usando BCrypt.
-     *
-     * BCrypt é um algoritmo de hash muito seguro:
-     * - Adiciona "salt" automático (torna cada hash único)
-     * - É lento de propósito (dificulta ataques de força bruta)
-     * - Gera hashs diferentes para a mesma senha
-     *
-     * Exemplo:
-     * senha "123456" → $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
-     * senha "123456" → $2a$10$X2e/8fBGlHq.8bVGJ6Q7O.sXpEn7gZz5Q7r0FtLnVqYKQVZ8gk6sm
-     * (Hashs diferentes, mas matches() funciona para ambos!)
-     */
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+  /**
+   * Define a cadeia de filtros HTTP utilizada pelo Spring Security.
+   *
+   * <p>Configura:
+   * <ul>
+   *   <li>CORS: Permite requisições de domínios específicos</li>
+   *   <li>CSRF: Desabilitado para API stateless (tokens JWT providenciam proteção)</li>
+   *   <li>JwtAuthenticationFilter: Valida JWT antes de processar requisição</li>
+   *   <li>Autorização HTTP: Define quais endpoints requerem autenticação</li>
+   *   <li>Sessão: STATELESS (não mantém estado no servidor)</li>
+   * </ul>
+   *
+   * <p>Ordem dos Filtros (importante):
+   * <ol>
+   *   <li>JwtAuthenticationFilter é adicionado ANTES de UsernamePasswordAuthenticationFilter</li>
+   *   <li>Isto faz com que JWT seja validado em cada requisição</li>
+   *   <li>Se inválido, próximos filtros tratam a rejeição</li>
+   * </ol>
+   *
+   * @param http {@link HttpSecurity} para configurar segurança HTTP
+   * @return {@link SecurityFilterChain} construída com configurações
+   * @throws Exception se erro ao configurar
+   */
+  @Bean
+  public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http
+        // Configurar CORS usando bean do CorsConfig
+        .cors(cors -> cors.configure(http))
 
-    /**
-     * Configuração da cadeia de filtros de segurança.
-     *
-         * Regras atuais:
-     * 1. Apenas usuário NÃO autenticado acessa /auth/login e /auth/register
-     * 2. Endpoints de escrita de catálogo exigem role ADMIN
-     * 3. Demais endpoints exigem autenticação
-     */
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(csrf -> csrf.disable()) // Desabilita CSRF (não precisa em API REST)
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/auth/login", "/auth/register").anonymous()
-                        .requestMatchers(HttpMethod.GET, "/uploads/photos/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/categories/**", "/products/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/categories/**", "/products/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/categories/**", "/products/**").hasRole("ADMIN")
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/users/**").hasRole("ADMIN")
-                        .anyRequest().authenticated()
-                )
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS) // Sem sessão, usa JWT
-                )
-                .authenticationProvider(authenticationProvider())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        // Desabilitar CSRF - API stateless usa JWT ao invés de CSRF tokens
+        .csrf(csrf -> csrf.disable())
 
-        return http.build();
-    }
+        // Adicionar JwtAuthenticationFilter ANTES de UsernamePasswordAuthenticationFilter
+        // Isto permite que JWT seja validado em cada requisição
+        .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 
-    @Bean
-    public AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(customUserDetailsService);
-        authProvider.setPasswordEncoder(passwordEncoder());
-        return authProvider;
-    }
+         // Configurar autorização HTTP
+         .authorizeHttpRequests(auth -> auth
+             // Endpoints públicos (autenticação não requerida)
+             .requestMatchers("/auth/**").permitAll()                                    // Login e register
+             .requestMatchers(HttpMethod.POST, "/webhooks/payments").permitAll()
+             .requestMatchers(HttpMethod.GET, "/api/v1/products/**").permitAll()        // GET produtos - público
+             .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()      // GET categorias - público
 
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
-    }
+             // Endpoints protegidos (autenticação requerida)
+             // @PreAuthorize nos controllers define quem pode acessar
+             .anyRequest().authenticated()
+         )
+
+        // Configurar gerenciamento de sessão
+        .sessionManagement(session -> session
+            // STATELESS: não criar/usar sessões HTTP
+            // JWT providencia o estado de autenticação
+            .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+        );
+
+    return http.build();
+  }
 }
-

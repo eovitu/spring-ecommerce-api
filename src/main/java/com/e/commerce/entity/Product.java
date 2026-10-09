@@ -23,8 +23,11 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     private String name;
+    @Column(length = 500)
     private String description;
+    @Column(precision = 38, scale = 2)
     private BigDecimal price;
+    @Column(length = 500)
     private String imageUrl;
 
     @ManyToMany
