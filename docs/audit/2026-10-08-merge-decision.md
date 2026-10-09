@@ -20,4 +20,3 @@ Não substituir develop, não usar resolução global ours/theirs, não reescrev
 ## Decisão e integração em 09/10/2026
 
 O usuário confirmou preservar a evolução local validada. O merge bd350d4 incorpora develop f4d54ba, com pais 4c32168 e f4d54ba. A rodada final teve 29 conflitos, incluindo CategoryRepository alterado pela correção posterior à contagem de 28. Todos foram examinados individualmente; não houve resolução global. Nove arquivos legados incompatíveis foram rejeitados; startup.sh e web.config compatíveis foram preservados como artefatos sem prova Azure. A suíte integrada executou 95 testes, zero falhas/erros/ignorados. Os impedimentos de decisão e conflito descritos acima foram superados; revisão da integração, CI remoto e deploy devem ser relatados separadamente.
-
