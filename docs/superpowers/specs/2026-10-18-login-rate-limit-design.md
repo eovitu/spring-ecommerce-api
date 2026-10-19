@@ -1,0 +1,15 @@
+# Proteção compartilhada do login
+
+Objetivo: limitar abuso sem introduzir Redis ou serviço pago. Regras aprovadas em 09/10 e escolha complementar delegada ao agente em 18/10: contar falhas por IP e por conta em janela móvel de 15 minutos; a décima falha inicia bloqueio 429 de 15 minutos. Sucesso não zera falhas. Requisição durante bloqueio, inclusive com senha correta, recebe 429 sem renovar o prazo. Uma chave bloqueada basta. Credenciais inválidas antes do limite recebem 401 genérico; conta inexistente tem o mesmo comportamento. DTO inválido preserva sua validação atual.
+
+Persistir as duas chaves no PostgreSQL e serializar concorrência em ordem determinística antes de adquirir lock de usuário. Nenhuma falha pode ser perdida por rollback da resposta 401/429. Usar transação própria que retorna resultado normalmente; lançar o erro HTTP após commit. Preservar lock de usuário e sessionVersion da frente de sessões. PostgreSQL indisponível falha fechado com 503 genérico.
+
+Modelagem técnica recomendada: V7 cria tabela de chaves pseudonimizadas SHA-256 com domínio por IP/conta, até dez timestamps de falha e blocked_until. Usar SQL parametrizado, ON CONFLICT e FOR UPDATE. Tempo do banco após locks evita desvio de relógio entre instâncias. Podar eventos com timestamp <= agora-15min. Linhas ociosas podem ser limpas com exclusão condicional e locks que não apaguem atualização concorrente. Não armazenar senha, token, email ou IP em claro; hash não é anonimização.
+
+IP vem do endereço remoto da conexão. Sem contrato de proxy confiável, não aceitar Forwarded/X-Forwarded-For nem habilitar reescrita automática do endereço por esses headers. Conta usa a mesma identidade e sensibilidade a caixa da busca existente, sem modificar cadastro. Conta ausente deve executar comparação BCrypt com hash dummy no caminho não bloqueado. Não criar novo segredo nem reutilizar a chave JWT para outra finalidade.
+
+Retornar Retry-After inteiro positivo arredondado para cima, correspondente ao maior bloqueio ativo. Nunca prolongar bloqueio por tentativa bloqueada. Preservar JSON de login, cadastro/logout, requisitos de senha, ownership, pagamentos simulados e migrations V1–V6. Logs sem identidade, senha, token, chaves ou dados arbitrários da persistência.
+
+Limites conhecidos: um proxy pode concentrar usuários no mesmo IP; bloqueio por conta pode causar negação temporária de acesso à vítima. São trade-offs da regra solicitada, não proteção completa contra DDoS. Retenção e limpeza devem evitar crescimento permanente por chaves abandonadas. Não afirmar capacidade sem medição.
+
+Aceites: HTTP real 401 nas falhas 1–9, 429 na décima e durante bloqueio, Retry-After; conta entre IPs e IP entre contas; sucesso sem reset; limite exato da janela e do bloqueio; concorrência com conexões independentes e no máximo dez falhas registradas por chave; persistência após erro/rollback externo e reuso por outro serviço/contexto; headers falsos não alteram IP; indisponibilidade 503; cleanup sem perder atualização. Testcontainers descartável obrigatório, sem URL externa. Suíte existente e CI devem passar antes de merge.
