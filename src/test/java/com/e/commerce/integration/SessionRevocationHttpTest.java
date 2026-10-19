@@ -169,7 +169,7 @@ class SessionRevocationHttpTest {
         var v5=org.flywaydb.core.Flyway.configure().dataSource(postgres.getJdbcUrl(),postgres.getUsername(),postgres.getPassword()).schemas(schema).defaultSchema(schema).target("5").load();
         v5.migrate();UUID id=UUID.randomUUID();
         jdbc.update("INSERT INTO "+schema+".tb_user(id,name,email,password,role,created_at,updated_at) VALUES (?,?,?,?,?,now(),now())",id,"Legacy","legacy@example.com","hash","USER");
-        var v6=org.flywaydb.core.Flyway.configure().dataSource(postgres.getJdbcUrl(),postgres.getUsername(),postgres.getPassword()).schemas(schema).defaultSchema(schema).load();
+        var v6=org.flywaydb.core.Flyway.configure().dataSource(postgres.getJdbcUrl(),postgres.getUsername(),postgres.getPassword()).schemas(schema).defaultSchema(schema).target("6").load();
         assertEquals(1,v6.migrate().migrationsExecuted);v6.validate();assertEquals("6",v6.info().current().getVersion().getVersion());
         assertEquals(0L,jdbc.queryForObject("SELECT session_version FROM "+schema+".tb_user WHERE id=?",Long.class,id));
     }

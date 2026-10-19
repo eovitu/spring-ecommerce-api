@@ -81,7 +81,7 @@ Um registro publicado comprova aceitação em uma fila pelo broker, não process
 No Linux, use `./mvnw -B clean verify`. Java 21 e Docker acessível são obrigatórios.
 Os testes PostgreSQL usam Testcontainers e bancos descartáveis, sem URL de banco externo.
 A ausência de Docker falha a execução em vez de ignorar testes.
-A suíte cobre migrations V1 a V6, concorrência de estoque, rollback, pagamento repetido/concorrente,
+A suíte cobre migrations V1 a V7, concorrência de estoque, rollback, pagamento repetido/concorrente,
 limites de catálogo e OpenAPI autenticado em servidor HTTP real.
 
 O workflow CI verifica PRs para `develop` e pushes `fix/**` com Java 21.
@@ -92,7 +92,7 @@ análise da exposição de cada advisory.
 
 ## Riscos pendentes
 
-Não há limite de tentativas de autenticação nem teto explícito para paginação. Segredos que tenham aparecido no histórico devem ser rotacionados pelo
+Não há teto explícito para paginação. Segredos que tenham aparecido no histórico devem ser rotacionados pelo
 responsável pelo ambiente; a remoção do código não comprova a rotação.
 O relatório final da auditoria registra as demais pendências de segurança e entrega da outbox.
 
@@ -104,4 +104,30 @@ JWT novos incluem `sessionVersion` inteira não negativa. Cada autenticação co
 
 A revogação vale após o commit; requisições já autenticadas em andamento continuam. Mudança de email ou divergência de papel também invalida tokens. Não há endpoint de alteração de papel; futuras operações controladas devem chamar `User.revokeSessions()` sob o mesmo lock e na mesma transação da alteração. Overflow de BIGINT aborta a operação. JWT inválido/revogado retorna 401 genérico; indisponibilidade do banco na autenticação retorna 503 genérico e nunca autentica. Rotas públicas e autorização por ownership mantêm seus contratos.
 
-A migration V6 adiciona `tb_user.session_version` com valor inicial zero e constraint não negativa. V1–V5 permanecem imutáveis. O limite compartilhado de tentativas de login continua uma frente separada.
+A migration V6 adiciona `tb_user.session_version` com valor inicial zero e constraint não negativa. V1–V5 permanecem imutáveis. A migration V7 adiciona o estado compartilhado de tentativas de login.
+
+## Limite de tentativas de login
+
+`POST /auth/login` conta falhas por IP e por conta na janela móvel de 15 minutos.
+As falhas 1 a 9 retornam 401 genérico. A décima inicia bloqueio de 15 minutos e retorna
+429 com `Retry-After` em segundos, arredondado para cima. Qualquer uma das duas chaves
+bloqueada impede o login, inclusive com senha correta. Sucesso não zera falhas e tentativas
+bloqueadas não prolongam o prazo. Conta ausente segue a mesma regra e executa BCrypt dummy.
+O email mantém a identidade exata e a sensibilidade a caixa da busca existente.
+
+O estado fica no PostgreSQL, em transação independente que confirma os contadores antes
+de retornar 401/429. As duas chaves são bloqueadas em ordem determinística
+antes da linha de usuário. Indisponibilidade da persistência retorna 503 genérico.
+As chaves SHA-256 com domínio por IP/conta são pseudonimizadas, não anônimas; o limite
+não persiste email, IP, senha ou token em claro e não exige segredo adicional.
+
+O IP é o endereço remoto da conexão. `Forwarded` e `X-Forwarded-For` não são confiáveis;
+`server.forward-headers-strategy=none` impede sua reescrita automática. Atrás de proxy,
+clientes podem compartilhar o mesmo limite de IP. Um atacante também pode bloquear
+uma conta temporariamente. Essas regras não representam proteção completa contra DDoS.
+
+Uma tarefa a cada minuto remove até 500 chaves expiradas, com locks `SKIP LOCKED` e
+exclusão condicional para preservar atualizações concorrentes. `jobs.login-cleanup.delay`
+e `jobs.login-cleanup.initial-delay` permitem ajustar o intervalo em milissegundos.
+A retenção cobre a última falha ou o bloqueio por 15 minutos; o tempo efetivo de remoção
+depende do lote acumulado. Não foi medida capacidade de tráfego ou velocidade de limpeza.

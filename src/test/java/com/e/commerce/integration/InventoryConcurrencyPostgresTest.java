@@ -338,9 +338,9 @@ class InventoryConcurrencyPostgresTest {
                 UUID.randomUUID(), "Legacy", "Legacy description", BigDecimal.TEN, "legacy.png");
         var upgraded = org.flywaydb.core.Flyway.configure().dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
                 .schemas(schema).defaultSchema(schema).load();
-        assertEquals(5, upgraded.migrate().migrationsExecuted);
+        assertEquals(6, upgraded.migrate().migrationsExecuted);
         upgraded.validate();
-        assertEquals("6", upgraded.info().current().getVersion().getVersion());
+        assertEquals("7", upgraded.info().current().getVersion().getVersion());
         assertEquals(1, integer("SELECT COUNT(*) FROM " + schema + ".product"));
         assertEquals(1, integer("SELECT COUNT(*) FROM " + schema + ".stock"));
         assertEquals(0, integer("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = ? AND table_name = 'stock' AND column_name = 'version'", schema));
