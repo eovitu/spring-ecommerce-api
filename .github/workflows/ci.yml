@@ -1,0 +1,22 @@
+name: E-commerce CI
+on:
+  pull_request:
+    branches: [develop]
+  push:
+    branches: ['fix/**']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+      - name: Verify branch revision
+        run: git rev-parse HEAD
+      - name: Verify with disposable PostgreSQL
+        run: mvn -B clean verify

@@ -1,5 +1,7 @@
 package com.e.commerce.service;
 
+import com.e.commerce.entity.User;
+import com.e.commerce.enums.Role;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -7,11 +9,12 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
+import javax.crypto.SecretKey;
 
 /**
  * Encapsula a emissão, leitura e validação de JWT.
@@ -49,8 +52,13 @@ public class JwtService {
      * @param email e-mail usado como subject
      * @return token assinado
      */
-    public String generateToken(String email) {
-        return generateToken(new HashMap<>(), email);
+    public String generateToken(User user) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", user.getId().toString());
+        claims.put("role", user.getRole().name());
+        if (user.getSessionVersion() < 0) throw new IllegalArgumentException("Sessao invalida");
+        claims.put("sessionVersion", user.getSessionVersion());
+        return generateToken(claims, user.getEmail());
     }
 
     /**
@@ -82,7 +90,7 @@ public class JwtService {
                 .subject(email)
                 .issuedAt(new Date(now))
                 .expiration(new Date(now + expiration))
-                .signWith(getSignInKey())
+                .signWith(getSignInKey(), Jwts.SIG.HS256)
                 .compact();
     }
 
@@ -94,11 +102,32 @@ public class JwtService {
         return (username.equals(email)) && !isTokenExpired(token);
     }
 
+    public UUID extractUserId(String token) {
+        String value = extractClaim(token, claims -> claims.get("userId", String.class));
+        if (value == null) throw new IllegalArgumentException("Sessao invalida");
+        return UUID.fromString(value);
+    }
+
+    public long extractSessionVersion(String token) {
+        Object value = extractClaim(token, claims -> claims.get("sessionVersion"));
+        if (!(value instanceof Integer || value instanceof Long) || ((Number) value).longValue() < 0) {
+            throw new IllegalArgumentException("Sessao invalida");
+        }
+        return ((Number) value).longValue();
+    }
+
+    public Role extractRole(String token) {
+        String value = extractClaim(token, claims -> claims.get("role", String.class));
+        if (value == null) throw new IllegalArgumentException("Sessao invalida");
+        return Role.valueOf(value);
+    }
+
     /**
      * Verifica se a data de expiração já foi atingida.
      */
     private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+        Date expiration = extractExpiration(token);
+        return expiration == null || !expiration.after(new Date());
     }
 
     /**
@@ -123,8 +152,11 @@ public class JwtService {
     /**
      * Converte a chave configurada para o formato exigido pelo JJWT.
      */
-    private Key getSignInKey() {
+    private SecretKey getSignInKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+        if (keyBytes.length < 32) {
+            throw new IllegalStateException("JWT_SECRET deve possuir ao menos 256 bits codificados em Base64");
+        }
         return Keys.hmacShaKeyFor(keyBytes);
     }
 }

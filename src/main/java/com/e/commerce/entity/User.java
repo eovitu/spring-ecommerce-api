@@ -100,6 +100,15 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role;
 
+    @Column(name = "session_version", nullable = false)
+    @JsonIgnore
+    private long sessionVersion;
+
+    /** Revoga todas as sessões. Deve ser chamado sob lock na mesma transação. */
+    public void revokeSessions() {
+        sessionVersion = Math.incrementExact(sessionVersion);
+    }
+
     /**
      * Telefone do usuário (opcional).
      * Máximo 11 caracteres (padrão brasileiro).
@@ -110,9 +119,9 @@ public class User {
     /**
      * Lista de pedidos feitos pelo usuário.
      * Relacionamento um-para-muitos.
-     * Cascata para deletar pedidos se usuário for deletado.
+     * Pedidos preservam o histórico comercial e não são removidos em cascata.
      */
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     @JsonManagedReference
     @JsonIgnore
     private List<Order> orders = new ArrayList<>();

@@ -1,5 +1,6 @@
 package com.e.commerce.dto.request;
 
+import com.e.commerce.validation.BCryptPasswordLength;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -19,6 +20,7 @@ public class LoginRequest {
     private String email;
 
     @NotBlank(message = "Senha e obrigatoria")
-    @Size(min = 6, max = 100, message = "Senha deve ter entre 6 e 100 caracteres")
+    @Size(min = 6, message = "Senha deve ter no minimo 6 caracteres")
+    @BCryptPasswordLength
     private String password;
 }
