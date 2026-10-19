@@ -7,9 +7,11 @@ import com.e.commerce.dto.response.UserResponse;
 import com.e.commerce.entity.User;
 import com.e.commerce.enums.Role;
 import com.e.commerce.exception.DatabaseException;
+import com.e.commerce.exception.LoginRateLimitException;
 import com.e.commerce.exception.UnauthorizedException;
 import com.e.commerce.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -21,11 +23,12 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
+    private final LoginAttemptService loginAttempts;
 
     /**
      * Autentica o usuário e retorna um token de acesso.
@@ -34,23 +37,21 @@ public class AuthService {
      * @return payload de autenticação com token Bearer
      * @throws UnauthorizedException quando e-mail ou senha forem inválidos
      */
-    @org.springframework.transaction.annotation.Transactional
     public LoginResponse login(LoginRequest request) {
-        User user = userRepository.findByEmailForUpdate(request.getEmail())
-                .orElseThrow(() -> new UnauthorizedException("Credenciais invalidas"));
+        return login(request, "internal");
+    }
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+    public LoginResponse login(LoginRequest request, String remoteAddress) {
+        var result = loginAttempts.authenticate(request, remoteAddress);
+        if (result.retryAfter() > 0) {
+            log.debug("Login blocked by attempt limit");
+            throw new LoginRateLimitException(result.retryAfter());
+        }
+        if (result.response() == null) {
+            log.debug("Login rejected: invalid credentials");
             throw new UnauthorizedException("Credenciais invalidas");
         }
-
-        String token = jwtService.generateToken(user);
-
-        LoginResponse response = new LoginResponse();
-        response.setToken(token);
-        response.setType("Bearer");
-        response.setExpiresIn(jwtService.getExpirationTime() / 1000);
-
-        return response;
+        return result.response();
     }
 
     /** Revoga todas as sessões após adquirir o mesmo lock usado na emissão. */

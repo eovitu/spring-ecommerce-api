@@ -45,6 +45,13 @@ public class ResourceExceptionHandler {
         return ResponseEntity.status(status).body(err);
     }
 
+    @ExceptionHandler(LoginRateLimitException.class)
+    public ResponseEntity<StandardError> loginRateLimit(LoginRateLimitException e, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", Long.toString(e.getRetryAfter()))
+                .body(new StandardError(Instant.now(), 429, "Too many requests", e.getMessage(), request.getRequestURI()));
+    }
+
     @ExceptionHandler(ForbiddenException.class)
     public ResponseEntity<StandardError> forbidden(ForbiddenException e, HttpServletRequest request) {
         String error = "Forbidden";
